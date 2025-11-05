@@ -209,10 +209,17 @@ def test_diff_moved_file_added_first(temp_repo: Repository) -> None:
 
     assert len(modified) == 2
 
-    assert modified[0].record.name == 'dir1'
-    assert len(modified[0].children) == 1
+    # We don't know the order of modified directories, so first check if the names exist
+    # and then use their indices
+    dir_names = [mod.record.name for mod in modified]
 
-    modified_child = modified[0].children[0]
+    assert 'dir1' in dir_names
+    dir1_index = dir_names.index('dir1')
+
+    assert modified[dir1_index].record.name == 'dir1'
+    assert len(modified[dir1_index].children) == 1
+
+    modified_child = modified[dir1_index].children[0]
     assert isinstance(modified_child, MovedToDiff)
     assert modified_child.record.name == 'file_a.txt'
 
@@ -222,10 +229,13 @@ def test_diff_moved_file_added_first(temp_repo: Repository) -> None:
     assert len(modified_child.moved_to.parent.children) == 1
     assert modified_child.moved_to.record.name == 'file_c.txt'
 
-    assert modified[1].record.name == 'dir2'
-    assert len(modified[1].children) == 1
+    assert 'dir2' in dir_names
+    dir2_index = dir_names.index('dir2')
 
-    modified_child = modified[1].children[0]
+    assert modified[dir2_index].record.name == 'dir2'
+    assert len(modified[dir2_index].children) == 1
+
+    modified_child = modified[dir2_index].children[0]
     assert isinstance(modified_child, MovedFromDiff)
     assert modified_child.record.name == 'file_c.txt'
 
