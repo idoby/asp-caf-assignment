@@ -2,7 +2,7 @@ import pytest
 from pathlib import Path
 from libcaf.repository import Repository, RepositoryError, HashRef
 from libcaf.constants import HASH_LENGTH
-from libcaf.tag import TagNotInTagsDirError
+from libcaf.tag import TagNotInTagsDirError, TagAlreadyExistsError
 
 @pytest.fixture
 def commit_hash(temp_repo: Repository) -> HashRef:
@@ -32,8 +32,8 @@ def test_create_tag_success(temp_repo: Repository, commit_hash: HashRef):
 def test_create_tag_already_exists(temp_repo: Repository, commit_hash: HashRef):
     """Tests that creating a duplicate tag raises an error."""
     temp_repo.create_tag('v1.0', commit_hash)
-    
-    with pytest.raises(RepositoryError, match="Tag 'v1.0' Already Exists"):
+
+    with pytest.raises(TagAlreadyExistsError):
         temp_repo.create_tag('v1.0', commit_hash)
 
 def test_create_tag_empty_name(temp_repo: Repository, commit_hash: HashRef):
