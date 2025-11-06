@@ -14,7 +14,7 @@ from .constants import (DEFAULT_BRANCH, DEFAULT_REPO_DIR, HASH_CHARSET, HASH_LEN
                         OBJECTS_SUBDIR, REFS_DIR, TAGS_DIR)
 from .plumbing import hash_object, load_commit, load_tree, save_commit, save_file_content, save_tree
 from .ref import HashRef, Ref, RefError, SymRef, read_ref, write_ref
-from .tag import TagNotInTagsDirError, Tag, write_tag
+from .tag import TagNotFound, Tag, TagExistsError, TagError, UnknownHashError
 
 
 class RepositoryError(Exception):
@@ -583,7 +583,7 @@ class Repository:
         tag_path = self.tags_dir() / tag_name
 
         if not tag_path.exists():
-            raise TagNotInTagsDirError(tag_name)
+            raise TagNotFound(tag_name)
 
         tag_path.unlink()
 
@@ -612,32 +612,34 @@ class Repository:
             msg = f'Invalid commit hash: {commit_hash}'
             raise ValueError(msg)
         
-        if not self.object_exists(commit_hash):
-            msg = f'Commit with hash "{commit_hash}" does not exist'
-            raise RepositoryError(msg)
+        # Verify that the commit exists
+        if not (self.objects_dir() / commit_hash[:2] / commit_hash).is_file():
+            raise UnknownHashError(commit_hash)
         
         try:
             commit = load_commit(self.objects_dir(), HashRef(commit_hash))
             if not commit:
                 msg = f'Commit with hash "{commit_hash}" could not be loaded'
                 raise RepositoryError(msg)
+
         except Exception as e:
             raise RepositoryError(e) from e
         
         tag_path = self.tags_dir() / tag_name
-        write_tag(tag_path, Tag(commit_hash))
 
-    @requires_repo
-    def object_exists(self, object_hash: str) -> bool:
-        """Check if an object with the given hash exists in the repository.
+        # Ensure the tag file is in a 'tags' directory
+        if tag_path.parent.name != "tags":
+            raise TagNotFound(tag_path)
 
-        :param object_hash: The hash of the object to check.
-        :return: True if the object exists, False otherwise.
-        :raises RepositoryNotFoundError: If the repository does not exist."""
-        if not object_hash:
-            return False
-        object_path = self.objects_dir() / object_hash[:2] / object_hash
-        return object_path.is_file()
+        # Check if the tag already exists, to avoid overwriting
+        if tag_path.exists():
+            raise TagExistsError(tag_path)
+
+        try:
+            # Write the tag as if it were a reference, which it is
+            write_ref(tag_path, Tag(commit_hash))
+        except RefError as e:
+            raise TagError(f"Failed to write tag to {tag_path}: {e}") from e
 
 
 def branch_ref(branch: str) -> SymRef:

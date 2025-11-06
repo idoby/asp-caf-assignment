@@ -10,7 +10,7 @@ from libcaf.plumbing import hash_file as plumbing_hash_file
 from libcaf.ref import SymRef
 from libcaf.repository import (AddedDiff, Diff, ModifiedDiff, MovedToDiff, RemovedDiff, Repository, RepositoryError,
                                RepositoryNotFoundError)
-from libcaf.tag import TagNotInTagsDirError, TagAlreadyExistsError
+from libcaf.tag import TagNotFound, TagExistsError, UnknownHashError
 
 def _print_error(message: str) -> None:
     print(f'❌ Error: {message}', file=sys.stderr)
@@ -310,11 +310,8 @@ def delete_tag(**kwargs) -> int:
     except RepositoryNotFoundError:
         _print_error(f'No repository found at {repo.repo_path()}')
         return -1
-    except TagNotInTagsDirError as e:
-        _print_error(f'Tag error: {e}')
-        return -1
-    except ValueError as e:
-        _print_error(f'Value error: {e}')
+    except TagNotFound as e:
+        _print_error(f'Tag not found: {e}')
         return -1
 
 def create_tag(**kwargs) -> int:
@@ -340,6 +337,9 @@ def create_tag(**kwargs) -> int:
     except RepositoryError as e:
         _print_error(f'Repository error: {e}')
         return -1
-    except TagAlreadyExistsError as e:
-        _print_error(f'Tag error: {e}')
+    except TagExistsError as e:
+        _print_error(e)
+        return -1
+    except UnknownHashError as e:
+        _print_error(f'commit hash does not exist: {e}')
         return -1

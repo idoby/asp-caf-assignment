@@ -71,3 +71,10 @@ def parse_commit_hash(capsys: CaptureFixture[str]) -> Callable[[], str]:
         return commit_hash
 
     return _parse
+
+@fixture
+def commit_hash(temp_repo: Repository) -> str:
+    """Fixture to create a single commit and return its hash."""
+    (temp_repo.working_dir / 'file.txt').write_text('content')
+    commit_ref = temp_repo.commit_working_dir('Test Author', 'Test Message')
+    return str(commit_ref)
