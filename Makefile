@@ -92,11 +92,14 @@ endif
 clean-coverage:
 	rm -f libcaf/*.gcda
 	rm -rf tests/.coverage
-	rm -r coverage
+	rm -rf coverage 
 
 clean: clean-coverage
 	rm -rf libcaf/libcaf.egg-info libcaf/*.so libcaf/build
 	rm -rf caf/caf.egg-info
+
+clean-all: clean 
+	docker builder prune -af
 
 help:
 	@echo "🌟 Available targets:"
