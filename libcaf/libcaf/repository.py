@@ -11,7 +11,7 @@ from typing import Concatenate
 
 from . import Blob, Commit, Tree, TreeRecord, TreeRecordType
 from .constants import (DEFAULT_BRANCH, DEFAULT_REPO_DIR, HASH_CHARSET, HASH_LENGTH, HEADS_DIR, HEAD_FILE,
-                        OBJECTS_SUBDIR, REFS_DIR)
+                        OBJECTS_SUBDIR, REFS_DIR, TAGS_DIR)
 from .plumbing import hash_object, load_commit, load_tree, save_commit, save_file_content, save_tree
 from .ref import HashRef, Ref, RefError, SymRef, read_ref, write_ref
 
@@ -132,6 +132,12 @@ class Repository:
 
         :return: The path to the heads directory."""
         return self.refs_dir() / HEADS_DIR
+
+    def tags_dir(self) -> Path:
+        """Get the path to the tags directory within the repository.
+
+        :return: The path to the tags directory."""
+        return self.refs_dir() / TAGS_DIR
 
     @staticmethod
     def requires_repo[**P, R](func: Callable[Concatenate['Repository', P], R]) -> \
@@ -315,7 +321,78 @@ class Repository:
 
         :return: A list of branch names.
         :raises RepositoryNotFoundError: If the repository does not exist."""
-        return [x.name for x in self.heads_dir().iterdir() if x.is_file()]
+        return [x.name for x in self.heads_dir().iterdir()]
+
+    @requires_repo
+    def create_tag(self, tag_name: str, commit_ref: Ref | None = None) -> None:
+        """Create a tag pointing to a commit.
+
+        :param tag_name: The name of the tag to create.
+        :param commit_ref: The commit to tag. If None, uses HEAD.
+        :raises ValueError: If the tag name is empty.
+        :raises RepositoryError: If the tag already exists or HEAD has no commit.
+        :raises RepositoryNotFoundError: If the repository does not exist."""
+        if not tag_name:
+            msg = 'Tag name is required'
+            raise ValueError(msg)
+        
+        if self.tag_exists(tag_name):
+            msg = f'Tag "{tag_name}" already exists'
+            raise RepositoryError(msg)
+        
+        # Resolve commit_ref - use HEAD if not provided
+        if commit_ref is None:
+            commit_ref = self.head_commit()
+            if commit_ref is None:
+                msg = 'Cannot create tag: HEAD has no commit'
+                raise RepositoryError(msg)
+        
+        # Resolve reference to hash
+        resolved_hash = self.resolve_ref(commit_ref)
+        if resolved_hash is None:
+            msg = f'Invalid reference: {commit_ref}'
+            raise RepositoryError(msg)
+        
+        # Create tag file with commit hash
+        tag_path = self.tags_dir() / tag_name
+        tag_path.parent.mkdir(parents=True, exist_ok=True)
+        write_ref(tag_path, resolved_hash)
+
+    @requires_repo
+    def delete_tag(self, tag_name: str) -> None:
+        """Delete a tag from the repository.
+
+        :param tag_name: The name of the tag to delete.
+        :raises ValueError: If the tag name is empty.
+        :raises RepositoryError: If the tag does not exist.
+        :raises RepositoryNotFoundError: If the repository does not exist."""
+        if not tag_name:
+            msg = 'Tag name is required'
+            raise ValueError(msg)
+        
+        tag_path = self.tags_dir() / tag_name
+        if not tag_path.exists():
+            msg = f'Tag "{tag_name}" does not exist.'
+            raise RepositoryError(msg)
+        
+        tag_path.unlink()
+
+    @requires_repo
+    def tag_exists(self, tag_name: str) -> bool:
+        """Check if a tag exists in the repository.
+        :raises RepositoryNotFoundError: If the repository does not exist."""
+        return (self.tags_dir() / tag_name).exists()
+
+    @requires_repo
+    def tags(self) -> list[str]:
+        """Get a list of all tag names in the repository.
+
+        :return: A list of tag names.
+        :raises RepositoryNotFoundError: If the repository does not exist."""
+        tags_dir = self.tags_dir()
+        if not tags_dir.exists():
+            return []
+        return [x.name for x in tags_dir.iterdir()]
 
     @requires_repo
     def save_dir(self, path: Path) -> HashRef:
