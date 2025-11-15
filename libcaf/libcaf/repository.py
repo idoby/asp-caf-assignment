@@ -544,6 +544,12 @@ class Repository:
 
                     parent_diff.children.append(local_diff)
 
+        def sort_diff_tree(diff: Diff) -> None:
+            diff.children.sort(key=lambda d: d.record.name)
+            for child in diff.children:
+                sort_diff_tree(child)
+
+        sort_diff_tree(top_level_diff)
         return top_level_diff.children
 
     def head_file(self) -> Path:
