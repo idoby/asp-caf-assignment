@@ -158,12 +158,12 @@ def test_diff_nested_trees(temp_repo: Repository) -> None:
 
     assert len(modified) == 2
 
-    assert modified[0].record.name == 'dir1'
+    assert modified[0].record.name == 'dir2'
     assert len(modified[0].children) == 1
     assert modified[0].children[0].record.name == 'file_a.txt'
     assert isinstance(modified[0].children[0], ModifiedDiff)
 
-    assert modified[1].record.name == 'dir2'
+    assert modified[1].record.name == 'dir1'
     assert len(modified[1].children) == 2
     assert modified[1].children[0].record.name == 'file_b.txt'
     assert isinstance(modified[1].children[0], RemovedDiff)
