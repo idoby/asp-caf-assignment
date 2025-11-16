@@ -325,6 +325,11 @@ def delete_tag(**kwargs) -> int:
 
 
 def tags(**kwargs) -> int:
+    """List all tags in the repository.
+    
+    :param kwargs: Command arguments (working_dir_path)
+    :return: 0 on success, -1 on failure
+    """
     repo = _repo_from_cli_kwargs(kwargs)
     
     try:
@@ -334,9 +339,11 @@ def tags(**kwargs) -> int:
             _print_success('No tags found.')
             return 0
 
-        _print_success('Tags:')
-        for tag in sorted(tag_list):
-            print(tag)
+        for tag_name in sorted(tag_list):
+            # Read the commit hash from the tag file
+            tag_path = repo.tags_dir() / tag_name
+            commit_hash = tag_path.read_text().strip()
+            print(f'{tag_name} -> {commit_hash}')
         
         return 0
     except RepositoryNotFoundError:

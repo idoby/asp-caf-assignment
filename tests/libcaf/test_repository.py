@@ -382,7 +382,7 @@ def test_create_tag_with_head_default(temp_repo: Repository) -> None:
     commit_ref = temp_repo.commit_working_dir('Author', 'Test commit')
 
     # Create tag without specifying commit (should use HEAD)
-    temp_repo.create_tag('v1.0.0')
+    temp_repo.create_tag('v1.0.0', 'HEAD')
 
     assert temp_repo.tag_exists('v1.0.0')
     tags = temp_repo.tags()
@@ -433,7 +433,7 @@ def test_create_tag_duplicate_raises_error(temp_repo: Repository) -> None:
 def test_create_tag_no_commits_raises_error(temp_repo: Repository) -> None:
     # Try to create tag when HEAD has no commit
     with raises(RepositoryError):
-        temp_repo.create_tag('v1.0.0')
+        temp_repo.create_tag('v1.0.0', 'HEAD')
 
 
 def test_create_tag_invalid_ref_raises_error(temp_repo: Repository) -> None:

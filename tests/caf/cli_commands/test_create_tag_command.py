@@ -14,7 +14,8 @@ def test_create_tag_command(temp_repo: Repository) -> None:
     
     assert cli_commands.create_tag(
         working_dir_path=temp_repo.working_dir, 
-        tag_name='v1.0.0'
+        tag_name='v1.0.0',
+        commit_hash='HEAD'
     ) == 0
 
     tag_path = temp_repo.working_dir / DEFAULT_REPO_DIR / REFS_DIR / TAGS_DIR / 'v1.0.0'
@@ -31,8 +32,8 @@ def test_create_tag_twice(temp_repo: Repository, capsys: CaptureFixture[str]) ->
     (temp_repo.working_dir / 'test.txt').write_text('test')
     temp_repo.commit_working_dir('Author', 'Initial commit')
     
-    assert cli_commands.create_tag(working_dir_path=temp_repo.working_dir, tag_name='v1.0.0') == 0
-    assert cli_commands.create_tag(working_dir_path=temp_repo.working_dir, tag_name='v1.0.0') == -1
+    assert cli_commands.create_tag(working_dir_path=temp_repo.working_dir, tag_name='v1.0.0', commit_hash='HEAD') == 0
+    assert cli_commands.create_tag(working_dir_path=temp_repo.working_dir, tag_name='v1.0.0', commit_hash='HEAD') == -1
 
     assert 'Tag "v1.0.0" already exists' in capsys.readouterr().err
 

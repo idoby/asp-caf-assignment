@@ -14,21 +14,23 @@ def test_tags_command(temp_repo: Repository, capsys: CaptureFixture[str]) -> Non
     tags = ['v1.0.0', 'v2.0.0', 'stable']
 
     for tag in tags:
-        cli_commands.create_tag(working_dir_path=temp_repo.working_dir, tag_name=tag)
+        cli_commands.create_tag(working_dir_path=temp_repo.working_dir, tag_name=tag, commit_hash='HEAD')
 
     capsys.readouterr()
 
     assert cli_commands.tags(working_dir_path=temp_repo.working_dir) == 0
 
+    output = capsys.readouterr().out
+    lines = output.splitlines()
+    
+    # parse tag names from "tag_name -> commit_hash" format
     tag_names: list[str] = []
-    lines = capsys.readouterr().out.splitlines()
-    for index, line in enumerate(lines):
-        if index != 0:
-            tag_names.append(line.strip())
+    for line in lines:
+        tag_name = line.strip().split(' -> ')[0]
+        tag_names.append(tag_name)
 
     assert len(tag_names) == len(tags)
     assert set(tag_names) == set(tags)
-
 
 def test_tags_no_repo(temp_repo_dir: Path, capsys: CaptureFixture[str]) -> None:
     assert cli_commands.tags(working_dir_path=temp_repo_dir) == -1

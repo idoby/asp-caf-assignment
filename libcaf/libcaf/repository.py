@@ -9,7 +9,7 @@ from functools import wraps
 from pathlib import Path
 from typing import Concatenate
 
-from . import Blob, Commit, Tag, Tree, TreeRecord, TreeRecordType
+from . import Blob, Commit, Tree, TreeRecord, TreeRecordType
 from .constants import (DEFAULT_BRANCH, DEFAULT_REPO_DIR, HASH_CHARSET, HASH_LENGTH, HEADS_DIR, HEAD_FILE,
                         OBJECTS_SUBDIR, REFS_DIR, TAGS_DIR)
 from .plumbing import hash_object, load_commit, load_tree, save_commit, save_file_content, save_tree
@@ -381,22 +381,15 @@ class Repository:
         return (self.tags_dir() / tag_name).exists()
 
     @requires_repo
-    def tags(self) -> list[Tag]:
-        """Get a list of all tags in the repository.
+    def tags(self) -> list[str]:
+        """Get a list of all tag names in the repository.
 
-        :return: A list of Tag objects.
+        :return: A list of tag names.
         :raises RepositoryNotFoundError: If the repository does not exist."""
         tags_dir = self.tags_dir()
         if not tags_dir.exists():
             return []
-        
-        tag_objects = []
-        for tag_file in tags_dir.iterdir():
-            tag_name = tag_file.name
-            commit_hash = read_ref(tag_file)
-            tag_objects.append(Tag(tag_name, commit_hash))
-        
-        return tag_objects
+        return [x.name for x in tags_dir.iterdir()]
 
     @requires_repo
     def save_dir(self, path: Path) -> HashRef:
