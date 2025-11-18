@@ -559,3 +559,47 @@ def branch_ref(branch: str) -> SymRef:
     :param branch: The name of the branch.
     :return: A SymRef object representing the branch reference."""
     return SymRef(f'{HEADS_DIR}/{branch}')
+
+############### tag#############################
+
+
+def create_tag(self, tag_name: str, commit_hash: str) -> None:
+
+    if not tag_name:
+        raise ValueError("Tag has no name")
+    
+    tags_dir = self.refs_dir() / "tags"
+    tags_dir.mkdir(parents=True, exist_ok=True)
+
+    tag_file = tags_dir / tag_name
+
+    if tag_file.exists():
+        raise RepositoryError(f'Tag "{tag_name}" already exists and a new one cannot be created .')
+
+    commit_file = self.objects_dir() / commit_hash[:2] / commit_hash
+    if not commit_file.exists():
+        raise RepositoryError(f'Commit "{commit_hash}" does not exist.')
+
+    tag_file.write_text(commit_hash)
+
+def delete_tag(self, tag_name: str) -> None:
+     if not tag_name:
+        raise ValueError("Tag name is required")
+     
+     tag_path = self.refs_dir() / "tags"/ tag_name
+
+     if not tag_path.exists():
+          raise RepositoryError('A tag with that name does not exist')
+    
+     tag_path.unlink()
+     
+
+def list_tags(self) -> list[str]:
+    tags_path = self.refs_dir() / "tags"
+    tags_list = []
+     
+    for tag in tags_path.iterdir():
+        if tag.is_file():
+            tags_list.append(tag.name)
+    
+    return tags_list
