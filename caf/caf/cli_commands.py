@@ -67,7 +67,81 @@ def hash_file(**kwargs) -> int:
     except RepositoryNotFoundError:
         _print_error(f'No repository found at {repo.repo_path()}')
         return -1
+    
+def tags(**kwargs) -> int:
+    repo = _repo_from_cli_kwargs(kwargs)
+    
+    try:
+        tag_names = repo.tags()
 
+        if not tag_names:
+            _print_success('No tags found.')
+            return 0    
+    
+        _print_success('Tags:')
+        for tag in sorted(tag_names): #Sort tags for consistent output
+            print(tag)
+
+        return 0
+    
+    except RepositoryNotFoundError:
+        _print_error(f'No repository found at {repo.repo_path()}')
+        return -1
+
+def add_tag(**kwargs) -> int:
+    repo =_repo_from_cli_kwargs(kwargs)
+    tag_name = kwargs.get('tag_name')
+    commit = kwargs.get('commit')
+
+    if not tag_name:
+        _print_error('Tag name is required.')
+        return -1
+    
+    if not commit:
+        _print_error('Commit hash is required.')
+        return -1
+    
+    try:
+        repo.add_tag(tag_name, commit)
+        _print_success(f'Tag "{tag_name}" added to commit {commit}.')
+        return 0
+
+    except RepositoryNotFoundError:
+        _print_error(f'No repository found at {repo.repo_path()}')
+        return -1
+    
+    except RepositoryError as e:    
+        _print_error(f'Repository error: {e}')
+        return -1
+    
+    except ValueError as ve:
+        _print_error(f'Value error: {ve}')
+        return -1
+
+def delete_tag(**kwargs) -> int:
+    repo = _repo_from_cli_kwargs(kwargs)
+    tag_name = kwargs.get('tag_name')
+
+    if not tag_name:
+        _print_error('Tag name is required.')
+        return -1
+    
+    try: 
+        repo.delete_tag(tag_name)
+        _print_success(f"Tag {tag_name} has been sucsessfully deleted.")
+        return 0
+    
+    except RepositoryNotFoundError:
+        _print_error(f'No repository found at {repo.repo_path()}')
+        return -1
+    
+    except RepositoryError as e:
+        _print_error(f'Repository error: {e}')
+        return -1
+    
+    except ValueError as ve:
+        _print_error(f'Value error: {ve}')
+        return -1
 
 def add_branch(**kwargs) -> int:
     repo = _repo_from_cli_kwargs(kwargs)

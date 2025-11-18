@@ -84,6 +84,41 @@ def cli() -> None:
             },
             'help': '🔍 Print the hash of the file and optionally save it to the repository',
         },
+        'add_tag': {
+            'func': cli_commands.add_tag,
+            'args': {
+                **_repo_args,
+                'tag_name': {
+                    'type': str,
+                    'help': '🏷️ Name of the tag to add',
+                },
+                'commit': {
+                    'type': str,
+                    'help': '🔖 Commit hash to tag',
+                },
+            },
+            'help': 'Add a new tag',
+        },
+
+        'delete_tag': {
+            'func': cli_commands.delete_tag,
+            'args': {
+                **_repo_args,
+                'tag_name': {
+                    'type': str,
+                    'help': '❌ Name of the tag to remove',
+                },
+            },
+            'help': '🗑️ Remove an existing tag',
+        },
+
+        'tags': {
+            'func': cli_commands.tags,
+            'args': {
+                **_repo_args,
+            },
+            'help': '🏷️ List all tags',
+        },
 
         'add_branch': {
             'func': cli_commands.add_branch,
