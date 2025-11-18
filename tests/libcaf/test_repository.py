@@ -4,7 +4,7 @@ from shutil import rmtree
 from libcaf.constants import DEFAULT_BRANCH, HASH_LENGTH
 from libcaf.plumbing import hash_object, load_commit, load_tree
 from libcaf.ref import RefError, SymRef
-from libcaf.repository import HashRef, Repository, RepositoryError, branch_ref
+from libcaf.repository import HashRef, Repository, RepositoryError, Tag, branch_ref
 from pytest import raises
 
 
@@ -198,6 +198,67 @@ def test_delete_empty_branch_name_raises_error(temp_repo: Repository) -> None:
 def test_delete_nonexistent_branch_name_raises_error(temp_repo: Repository) -> None:
     with raises(RepositoryError):
         temp_repo.delete_branch('nonexistent_branch')
+
+
+def _create_sample_commit(repo: Repository) -> HashRef:
+    sample_file = repo.working_dir / 'sample.txt'
+    sample_file.write_text('sample content')
+    repo.save_file_content(sample_file)
+    return repo.commit_working_dir('Alice', 'sample commit')
+
+
+def test_create_tag_and_list_tags(temp_repo: Repository) -> None:
+    commit_ref = _create_sample_commit(temp_repo)
+
+    created_tag = temp_repo.create_tag('v1.0', commit_ref)
+
+    assert created_tag.name == 'v1.0'
+    assert created_tag.target == commit_ref
+    tags = temp_repo.list_tags()
+    assert len(tags) == 1
+    assert tags[0] == Tag('v1.0', commit_ref)
+
+
+def test_create_tag_from_branch_name(temp_repo: Repository) -> None:
+    commit_ref = _create_sample_commit(temp_repo)
+    temp_repo.create_tag('v1.0', commit_ref)
+
+    latest_commit = temp_repo.head_commit()
+    assert latest_commit is not None
+    tag = temp_repo.create_tag('stable', branch_ref(DEFAULT_BRANCH))
+    assert tag.target == latest_commit
+
+
+def test_create_tag_duplicate_name_raises_error(temp_repo: Repository) -> None:
+    commit_ref = _create_sample_commit(temp_repo)
+    temp_repo.create_tag('v1.0', commit_ref)
+
+    with raises(RepositoryError):
+        temp_repo.create_tag('v1.0', commit_ref)
+
+
+def test_create_tag_invalid_target_raises_error(temp_repo: Repository) -> None:
+    with raises(RepositoryError):
+        temp_repo.create_tag('oops', 'deadbeef')
+
+
+def test_delete_tag(temp_repo: Repository) -> None:
+    commit_ref = _create_sample_commit(temp_repo)
+    temp_repo.create_tag('v1.0', commit_ref)
+
+    assert temp_repo.tag_exists('v1.0')
+    temp_repo.delete_tag('v1.0')
+    assert not temp_repo.tag_exists('v1.0')
+
+
+def test_delete_missing_tag_raises_error(temp_repo: Repository) -> None:
+    with raises(RepositoryError):
+        temp_repo.delete_tag('missing')
+
+
+def test_tag_exists_empty_name_raises_value_error(temp_repo: Repository) -> None:
+    with raises(ValueError):
+        temp_repo.tag_exists('')
 
 
 def test_delete_last_branch_name_raises_error(temp_repo: Repository) -> None:

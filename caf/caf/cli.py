@@ -152,6 +152,39 @@ def cli() -> None:
             },
             'help': '📊 Display differences between two commits',
         },
+        'tags': {
+            'func': cli_commands.tags,
+            'args': {
+                **_repo_args,
+            },
+            'help': '🏷️ List all tags',
+        },
+        'create_tag': {
+            'func': cli_commands.create_tag,
+            'args': {
+                **_repo_args,
+                'tag_name': {
+                    'type': str,
+                    'help': '🏷️ Name of the tag to create',
+                },
+                'target': {
+                    'type': str,
+                    'help': '🔗 Commit hash or ref the tag should point to',
+                },
+            },
+            'help': '➕ Create a new tag pointing to a commit',
+        },
+        'delete_tag': {
+            'func': cli_commands.delete_tag,
+            'args': {
+                **_repo_args,
+                'tag_name': {
+                    'type': str,
+                    'help': '🗑️ Name of the tag to delete',
+                },
+            },
+            'help': '🗑️ Delete an existing tag',
+        },
     }
 
     # Register commands
