@@ -327,8 +327,15 @@ class Repository:
             raise RepositoryError(msg)
         
         tag_path.unlink()
-        
+    
+    @requires_repo
+    def tags(self) -> list[str]:
+        """Get a list of all tag names in the repository.
 
+        :return: A list of tag names.
+        :raises RepositoryNotFoundError: If the repository does not exist."""
+        return [x.name for x in self.tags_dir().iterdir() if x.is_file()]
+        
     @requires_repo
     def tag_exists(self, tag_ref: Ref) -> bool:
         """Check if a tag exists in the repository.
