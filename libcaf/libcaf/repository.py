@@ -11,7 +11,7 @@ from typing import Concatenate
 
 from . import Blob, Commit, Tree, TreeRecord, TreeRecordType
 from .constants import (DEFAULT_BRANCH, DEFAULT_REPO_DIR, HASH_CHARSET, HASH_LENGTH, HEADS_DIR, HEAD_FILE,
-                        OBJECTS_SUBDIR, REFS_DIR)
+                        OBJECTS_SUBDIR, REFS_DIR, TAGS_DIR)
 from .plumbing import hash_object, load_commit, load_tree, save_commit, save_file_content, save_tree
 from .ref import HashRef, Ref, RefError, SymRef, read_ref, write_ref
 
@@ -563,43 +563,83 @@ def branch_ref(branch: str) -> SymRef:
 ############### tag#############################
 
 
-def create_tag(self, tag_name: str, commit_hash: str) -> None:
+class TagError(Exception):
+    """Exception raised for tag-related errors."""
+
+def tags_dir(self) -> Path:
+    return self.refs_dir() / TAGS_DIR
+
+
+
+
+def create_tag(self, tag_name: str, commit_hash: HashRef | str | None = None,
+               author: str | None = None, message: str | None = None) -> None:
 
     if not tag_name:
         raise ValueError("Tag has no name")
     
-    tags_dir = self.refs_dir() / "tags"
-    tags_dir.mkdir(parents=True, exist_ok=True)
-
-    tag_file = tags_dir / tag_name
-
+    tag_file = self.tags_dir() / tag_name 
+  
     if tag_file.exists():
-        raise RepositoryError(f'Tag "{tag_name}" already exists and a new one cannot be created .')
+        raise TagError(f'Tag "{tag_name}" already exists and a new one cannot be created .')
+    
+   
+    if commit_hash is None:
+       commit_hash_ref = self.head_commit()
+       if commit_hash_ref is None:
+            raise RepositoryError("Cannot create a tag without commit.")
+   
+    else:
+        commit_hash_ref = self.resolve_ref(commit_hash)
+        if commit_hash_ref is None:
+            raise RepositoryError(f"Unable to resolve reference '{commit_hash}'.")
+        
+    commit_hash_str = str(commit_hash_ref)
+    commit_path = self.objects_dir() / commit_hash_str[:2] / commit_hash_str
+    if not commit_path.exists():
+        raise RepositoryError(f'Commit "{commit_hash_ref}" does not exist at all.')
 
-    commit_file = self.objects_dir() / commit_hash[:2] / commit_hash
-    if not commit_file.exists():
-        raise RepositoryError(f'Commit "{commit_hash}" does not exist.')
 
-    tag_file.write_text(commit_hash)
+    import json, time
+    
+    tag_commit = {
+        "name": tag_name,
+        "commit": str(commit_hash_ref),
+        "author": author if author else "unknown",
+        "timestamp": int(time.time()),
+        "message": message if message else ""
+    }
+
+    self.tags_dir().mkdir(parents=True, exist_ok=True)
+
+    tag_file.write_text(json.dumps(tag_commit, indent=4))
+
+
+
 
 def delete_tag(self, tag_name: str) -> None:
      if not tag_name:
         raise ValueError("Tag name is required")
      
-     tag_path = self.refs_dir() / "tags"/ tag_name
+     tag_file = self.tags_dir()/ tag_name
 
-     if not tag_path.exists():
+     if not tag_file.exists():
           raise RepositoryError('A tag with that name does not exist')
     
-     tag_path.unlink()
+     tag_file.unlink()
      
 
 def list_tags(self) -> list[str]:
-    tags_path = self.refs_dir() / "tags"
-    tags_list = []
+    tags_path = self.tags_dir()
      
+    if not tags_path.exists():
+        return []
+    
+    tag_names = []
+
     for tag in tags_path.iterdir():
         if tag.is_file():
-            tags_list.append(tag.name)
+            tag_names.append(tag.name)
     
-    return tags_list
+    return tag_names
+

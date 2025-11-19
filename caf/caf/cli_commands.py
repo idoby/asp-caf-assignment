@@ -287,18 +287,36 @@ def create_tag (**kwargs)-> int:
     repo = _repo_from_cli_kwargs(kwargs)
     tag_name = kwargs.get('tag_name')
     commit_hash = kwargs.get('commit_hash')
+    author = kwargs.get('author')           
+    message = kwargs.get('message')          
      
     if not tag_name:
         _print_error('Tag name is required.')
         return -1
-    if not commit_hash: 
+    if not commit_hash:
         _print_error('Commit hash is required.')
         return -1
+    
 
     try:
-        repo.create_tag(tag_name,commit_hash )
-        _print_success(f'Tag "{tag_name}" created for commit {commit_hash}.')
+        repo.create_tag(tag_name,commit_hash,author, message)
+
+        tag_file = repo.tags_dir() / tag_name
+
+        import json
+        from datetime import datetime
+
+        data = json.loads(tag_file.read_text())
+        
+        str_time= datetime.fromtimestamp(data["timestamp"]).strftime("%Y-%m-%d %H:%M:%S")
+
+        _print_success( f'Tag "{data["name"]}" created successfully:\n'
+                        f'Commit:   {data["commit"]}\n'
+                        f'Time:     {str_time}\n'
+                        f'Author:   {data["author"]}\n'
+                        f'Message:  {data["message"]}\n')
         return 0
+    
     except RepositoryNotFoundError:
         _print_error(f'No repository found at {repo.repo_path()}')
         return -1
@@ -334,8 +352,8 @@ def list_tags(**kwargs) -> int:
         if not tags:
             print("No tags found.")
         else:
-            for t in tags:
-                print(t)
+            for tag in tags:
+                 print(f" - {tag}")
         return 0
     except RepositoryNotFoundError:
         _print_error(f'No repository found at {repo.repo_path()}')

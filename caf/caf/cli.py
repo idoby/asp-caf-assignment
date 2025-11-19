@@ -165,7 +165,17 @@ def cli() -> None:
                  'commit_hash':{
                      'type': str,
                      'help':'🔄 Commit hash tag'
-                 }
+                 },
+                  'author' :{
+                      'type': str,
+                      'help': '👤 Author of the tag (optional)',
+                      'default': None
+                },
+                 'message': {
+                     'type': str,
+                     'help': '💬 Tag message (optional)',
+                     'default': None
+        },
             },
             'help': '✅ Create new tag',
         },
