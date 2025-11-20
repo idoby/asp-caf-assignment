@@ -5,11 +5,12 @@ from collections.abc import MutableSequence, Sequence
 from datetime import datetime
 from pathlib import Path
 
-from libcaf.constants import DEFAULT_BRANCH
+from libcaf.constants import DEFAULT_BRANCH, DEFAULT_REPO_DIR, REFS_DIR, TAGS_DIR
 from libcaf.plumbing import hash_file as plumbing_hash_file
-from libcaf.ref import SymRef
+from libcaf.ref import SymRef,RefError
 from libcaf.repository import (AddedDiff, Diff, ModifiedDiff, MovedToDiff, RemovedDiff, Repository, RepositoryError,
-                               RepositoryNotFoundError)
+                               RepositoryNotFoundError,TagError)
+
 
 
 def _print_error(message: str) -> None:
@@ -290,7 +291,7 @@ def create_tag (**kwargs)-> int:
     author = kwargs.get('author')           
     message = kwargs.get('message')          
      
-    if not tag_name:
+    if tag_name is None:
         _print_error('Tag name is required.')
         return -1
     if not commit_hash:
@@ -317,9 +318,14 @@ def create_tag (**kwargs)-> int:
                         f'Message:  {data["message"]}\n')
         return 0
     
+    except (ValueError, TagError, RefError) as e:
+        _print_error(str(e))
+        return -1
+    
     except RepositoryNotFoundError:
         _print_error(f'No repository found at {repo.repo_path()}')
         return -1
+    
     except RepositoryError as e:
         _print_error(f'Repository error: {e}')
         return -1
@@ -348,16 +354,18 @@ def list_tags(**kwargs) -> int:
     repo = _repo_from_cli_kwargs(kwargs)
     
     try:
+        tags_dir = repo.repo_path() / REFS_DIR / TAGS_DIR
+
         tags = repo.list_tags()
+       
         if not tags:
             print("No tags found.")
         else:
             for tag in tags:
                  print(f" - {tag}")
         return 0
+    
     except RepositoryNotFoundError:
         _print_error(f'No repository found at {repo.repo_path()}')
         return -1
-    except RepositoryError as e:
-        _print_error(f'Repository error: {e}')
-        return -1
+    

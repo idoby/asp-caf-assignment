@@ -23,6 +23,9 @@ class RepositoryError(Exception):
 class RepositoryNotFoundError(RepositoryError):
     """Exception raised when a repository is not found."""
 
+class TagError(Exception):
+    """Exception raised for tag-related errors."""
+
 
 @dataclass
 class Diff:
@@ -551,6 +554,89 @@ class Repository:
 
         :return: The path to the HEAD file."""
         return self.repo_path() / HEAD_FILE
+    
+############### tag#############################
+
+
+    def tags_dir(self) -> Path:
+        return self.refs_dir() / TAGS_DIR
+
+    @requires_repo
+    def create_tag(self, tag_name: str, commit_hash: HashRef | str | None = None,
+                author: str | None = None, message: str | None = None) -> None:
+
+        if not tag_name:
+            raise ValueError("Tag has no name")
+        
+        tag_file = self.tags_dir() / tag_name 
+    
+        if tag_file.exists():
+            raise TagError(f'Tag "{tag_name}" already exists and a new one cannot be created .')
+        
+    
+        if not commit_hash:
+            commit_hash_ref = self.head_commit()
+            if commit_hash_ref is None:
+                raise RepositoryError("Cannot create a tag without commit.")
+    
+        else:
+            try:
+                commit_hash_ref = self.resolve_ref(commit_hash)
+            except Exception as e:
+                raise RepositoryError(f"Unable to resolve reference '{commit_hash}'.") from e
+
+            
+            
+        commit_hash_str = str(commit_hash_ref)
+        commit_path = self.objects_dir() / commit_hash_str[:2] / commit_hash_str
+        if not commit_path.exists():
+            raise RepositoryError(f'Commit "{commit_hash_ref}" does not exist at all.')
+
+
+        import json, time
+        
+        tag_commit = {
+            "name": tag_name,
+            "commit": str(commit_hash_ref),
+            "author": author if author else "unknown",
+            "timestamp": int(time.time()),
+            "message": message if message else ""
+        }
+
+        self.tags_dir().mkdir(parents=True, exist_ok=True)
+
+        tag_file.write_text(json.dumps(tag_commit, indent=4))
+
+
+
+    @requires_repo
+    def delete_tag(self, tag_name: str) -> None:
+        if not tag_name:
+            raise ValueError("Tag name is required")
+        
+        tag_file = self.tags_dir()/ tag_name
+
+        if not tag_file.exists():
+            raise RepositoryError('A tag with that name does not exist')
+        
+        tag_file.unlink()
+        
+    @requires_repo
+    def list_tags(self) -> list[str]:
+        tags_path = self.tags_dir()
+        
+        if not tags_path.exists():
+            return []
+        
+        tag_names = []
+
+        for tag in tags_path.iterdir():
+            if tag.is_file():
+                tag_names.append(tag.name)
+        
+        return tag_names
+
+
 
 
 def branch_ref(branch: str) -> SymRef:
@@ -559,87 +645,4 @@ def branch_ref(branch: str) -> SymRef:
     :param branch: The name of the branch.
     :return: A SymRef object representing the branch reference."""
     return SymRef(f'{HEADS_DIR}/{branch}')
-
-############### tag#############################
-
-
-class TagError(Exception):
-    """Exception raised for tag-related errors."""
-
-def tags_dir(self) -> Path:
-    return self.refs_dir() / TAGS_DIR
-
-
-
-
-def create_tag(self, tag_name: str, commit_hash: HashRef | str | None = None,
-               author: str | None = None, message: str | None = None) -> None:
-
-    if not tag_name:
-        raise ValueError("Tag has no name")
-    
-    tag_file = self.tags_dir() / tag_name 
-  
-    if tag_file.exists():
-        raise TagError(f'Tag "{tag_name}" already exists and a new one cannot be created .')
-    
-   
-    if commit_hash is None:
-       commit_hash_ref = self.head_commit()
-       if commit_hash_ref is None:
-            raise RepositoryError("Cannot create a tag without commit.")
-   
-    else:
-        commit_hash_ref = self.resolve_ref(commit_hash)
-        if commit_hash_ref is None:
-            raise RepositoryError(f"Unable to resolve reference '{commit_hash}'.")
-        
-    commit_hash_str = str(commit_hash_ref)
-    commit_path = self.objects_dir() / commit_hash_str[:2] / commit_hash_str
-    if not commit_path.exists():
-        raise RepositoryError(f'Commit "{commit_hash_ref}" does not exist at all.')
-
-
-    import json, time
-    
-    tag_commit = {
-        "name": tag_name,
-        "commit": str(commit_hash_ref),
-        "author": author if author else "unknown",
-        "timestamp": int(time.time()),
-        "message": message if message else ""
-    }
-
-    self.tags_dir().mkdir(parents=True, exist_ok=True)
-
-    tag_file.write_text(json.dumps(tag_commit, indent=4))
-
-
-
-
-def delete_tag(self, tag_name: str) -> None:
-     if not tag_name:
-        raise ValueError("Tag name is required")
-     
-     tag_file = self.tags_dir()/ tag_name
-
-     if not tag_file.exists():
-          raise RepositoryError('A tag with that name does not exist')
-    
-     tag_file.unlink()
-     
-
-def list_tags(self) -> list[str]:
-    tags_path = self.tags_dir()
-     
-    if not tags_path.exists():
-        return []
-    
-    tag_names = []
-
-    for tag in tags_path.iterdir():
-        if tag.is_file():
-            tag_names.append(tag.name)
-    
-    return tag_names
 
