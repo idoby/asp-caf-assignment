@@ -6,6 +6,7 @@
 #include <cstring>
 #include <stdexcept>
 #include <unordered_map>
+#include <map>
 
 #include "caf.h"
 #include "object_io.h"
@@ -99,7 +100,8 @@ Tree load_tree(const std::string &root_dir, const std::string &tree_hash) {
     if (read(fd, &num_records, sizeof(num_records)) != sizeof(num_records))
         throw std::runtime_error("Failed to read the number of records");
 
-    std::unordered_map<std::string, TreeRecord> records;
+    std::map<std::string, TreeRecord> records;  // Changed from unordered_map to map
+
     for (uint32_t i = 0; i < num_records; ++i) {
         TreeRecord record = load_tree_record(fd);
         records.emplace(record.name, record);

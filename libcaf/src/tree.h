@@ -2,6 +2,8 @@
 #define TREE_H
 
 #include <unordered_map>
+#include <map>
+
 #include <string>
 #include <utility>
 
@@ -9,13 +11,13 @@
 
 class Tree {
 public:
-    const std::unordered_map<std::string, TreeRecord> records;
+   const std::map<std::string, TreeRecord> records;   // Changed from unordered_map to map
+   explicit Tree(const std::map<std::string, TreeRecord>& records): records(records) {} // Changed from unordered_map to map
 
-    explicit Tree(const std::unordered_map<std::string, TreeRecord>& records): records(records) {}
-
-    std::unordered_map<std::string, TreeRecord>::const_iterator record(const std::string& key) const {
+    std::map<std::string, TreeRecord>::const_iterator record(const std::string& key) const { // Changed from unordered_map to map
         return records.find(key);
     }
+
 };
 
 #endif // TREE_H

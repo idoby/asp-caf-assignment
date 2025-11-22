@@ -4,6 +4,7 @@
 #include "hash_types.h"
 #include "object_io.h" 
 
+
 using namespace std;
 namespace py = pybind11;
 
@@ -48,7 +49,7 @@ PYBIND11_MODULE(_libcaf, m) {
     });
 
     py::class_<Tree>(m, "Tree")
-    .def(py::init<const std::unordered_map<std::string, TreeRecord>&>())
+    .def(py::init<const std::map<std::string, TreeRecord>&>()) // Changed from unordered_map to map
     .def_readonly("records", &Tree::records);
 
     py::class_<Commit>(m, "Commit")
