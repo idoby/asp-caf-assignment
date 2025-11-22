@@ -559,12 +559,28 @@ class Repository:
 
 
     def tags_dir(self) -> Path:
-        return self.refs_dir() / TAGS_DIR
+          """Get the path to the tags directory in the repository.
+
+           :return: The path to the directory where tag files are stored."""
+          
+          return self.refs_dir() / TAGS_DIR
 
     @requires_repo
     def create_tag(self, tag_name: str, commit_hash: HashRef | str | None = None,
                 author: str | None = None, message: str | None = None) -> None:
+        
+        """Create a new tag that points to a commit.
 
+            :param tag_name: The name of the tag to create.
+            :param commit_hash: The hash commit to tag. If None, uses HEAD.
+            :param author: Optional author name.
+            :param message: Optional message for the tag.
+            :raises ValueError: If the tag name is empty.
+            :raises TagError: If the tag already exists.
+            :raises RepositoryError: If the commit is invalid.
+            :raises RepositoryNotFoundError: If the repository does not exist."""
+        
+     
         if not tag_name:
             raise ValueError("Tag has no name")
         
@@ -611,6 +627,13 @@ class Repository:
 
     @requires_repo
     def delete_tag(self, tag_name: str) -> None:
+        """Delete a tag from the repository.
+
+        :param tag_name: The name of the tag to delete.
+        :raises ValueError: If the tag name is empty.
+        :raises RepositoryError: If the tag does not exist.
+        :raises RepositoryNotFoundError: If the repository does not exist."""
+
         if not tag_name:
             raise ValueError("Tag name is required")
         
@@ -623,6 +646,12 @@ class Repository:
         
     @requires_repo
     def list_tags(self) -> list[str]:
+        """Get a list of all tag names in the repository.
+
+        :return: A list of tag names.
+        :raises RepositoryNotFoundError: If the repository does not exist."""
+        
+
         tags_path = self.tags_dir()
         
         if not tags_path.exists():
