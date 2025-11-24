@@ -159,7 +159,7 @@ class Repository:
 
         return _verify_repo
 
-    """" ADDED IN TASK 5 """
+    """"  --------------------------- ADDED IN TASK 5 ---------------------------  """
     @requires_repo
     def create_tag(self, name: str, commit_hash: str) -> None:
         """ Create a new lightweight tag that points to a given commit hash.
@@ -195,6 +195,31 @@ class Repository:
         
         # Store the commit hash as a HashRef in the tag ref file
         write_ref(tag_path, HashRef(commit_hash))
+
+
+    @requires_repo
+    def delete_tag(self, name: str) -> None:
+        """Delete an existing tag from the repository.
+
+        :param name: The tag name to delete.
+        :raises ValueError: If the tag name is empty.
+        :raises RepositoryError: If the tag does not exist.
+        :raises RepositoryNotFoundError: If the repository does not exist."""
+
+        if not name:
+            msg = 'Tag name is required'
+            raise ValueError(msg)
+        
+        tag_path = self.tags_dir() / name
+        # If there is no ref file for this tag, we cannot delete it
+        if not tag_path.exists():
+            msg = f'Tag "{name}" does not exist.'
+            raise RepositoryError(msg)
+        
+        # Remove the tag ref file from the filesystem
+        tag_path.unlink()
+
+    """"  --------------------------- ADDED IN TASK 5 ---------------------------  """
 
     @requires_repo
     def head_ref(self) -> Ref | None:

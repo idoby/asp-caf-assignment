@@ -5,6 +5,9 @@ from libcaf.repository import Repository, RepositoryError
 from libcaf.ref import HashRef, read_ref
 from libcaf.constants import HASH_LENGTH
 
+
+""""  --------------------------- create_tag_tests ---------------------------  """
+
 def test_create_tag_creates_ref_for_existing_commit(tmp_path: Path) -> None:
     """ create_tag should creat a tag ref file pointing to an existing commit. """
 
@@ -105,3 +108,61 @@ def test_create_tag_requires_non_empty_name(tmp_path: Path) -> None:
         repo.create_tag("", some_hash)
 
     assert 'Tag name is required' in str(excinfo.value)
+
+""""  --------------------------- create_tag_tests ---------------------------  """
+
+
+""""  --------------------------- delete_tag_tests ---------------------------  """
+
+def test_delete_tag_removes_existing_tag(tmp_path: Path) -> None:
+    """delete_tag should remove an existing tag ref file."""
+    repo = Repository(working_dir=tmp_path)
+    repo.init()
+
+    work_file = tmp_path / "file.txt"
+    work_file.write_text("content for delete_tag test")
+
+    commit_ref = repo.commit_working_dir(author="tester", message="commit for tag")
+    tag_name = "v1.0"
+
+    # Create the tag
+    repo.create_tag(tag_name, str(commit_ref))
+
+    tag_path = repo.tags_dir() / tag_name
+    assert tag_path.exists(), "Precondition: tag ref file should exist before deletion"
+
+    # Act: delete the tag
+    repo.delete_tag(tag_name)
+
+    # Assert: tag ref file is removed
+    assert not tag_path.exists(), "Tag ref file was not deleted"
+
+
+def test_delete_tag_fails_when_tag_does_not_exist(tmp_path: Path) -> None:
+    """delete_tag should raise RepositoryError if the tag does not exist."""
+    repo = Repository(working_dir=tmp_path)
+    repo.init()
+
+    tag_name = "non-existent-tag"
+
+    with pytest.raises(RepositoryError) as excinfo:
+        repo.delete_tag(tag_name)
+
+    assert 'does not exist' in str(excinfo.value)
+
+
+def test_delete_tag_requires_non_empty_name(tmp_path: Path) -> None:
+    """delete_tag should raise ValueError when called with an empty tag name."""
+    repo = Repository(working_dir=tmp_path)
+    repo.init()
+
+    with pytest.raises(ValueError) as excinfo:
+        repo.delete_tag("")
+
+    assert 'Tag name is required' in str(excinfo.value)
+
+""""  --------------------------- delete_tag_tests ---------------------------  """
+
+
+
+
