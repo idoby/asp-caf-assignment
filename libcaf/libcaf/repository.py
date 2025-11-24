@@ -11,7 +11,7 @@ from typing import Concatenate
 
 from . import Blob, Commit, Tree, TreeRecord, TreeRecordType
 from .constants import (DEFAULT_BRANCH, DEFAULT_REPO_DIR, HASH_CHARSET, HASH_LENGTH, HEADS_DIR, HEAD_FILE,
-                        OBJECTS_SUBDIR, REFS_DIR)
+                        OBJECTS_SUBDIR, REFS_DIR, TAGS_DIR)
 from .plumbing import hash_object, load_commit, load_tree, save_commit, save_file_content, save_tree
 from .ref import HashRef, Ref, RefError, SymRef, read_ref, write_ref
 
@@ -132,6 +132,14 @@ class Repository:
 
         :return: The path to the heads directory."""
         return self.refs_dir() / HEADS_DIR
+    
+    """" ADDED IN TASK 5 """
+    def tags_dir(self) -> Path:
+        """Get the path to the heads directory within the repository.
+
+        :return: The path to the tags directory."""
+        return self.refs_dir() / TAGS_DIR
+
 
     @staticmethod
     def requires_repo[**P, R](func: Callable[Concatenate['Repository', P], R]) -> \
