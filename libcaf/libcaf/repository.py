@@ -544,9 +544,6 @@ class Repository:
 
                     parent_diff.children.append(local_diff)
 
-        # Sort the diffs to ensure a deterministic order.
-        top_level_diff.children.sort(key=lambda d: d.record.name)
-
         return top_level_diff.children
 
     def head_file(self) -> Path:
