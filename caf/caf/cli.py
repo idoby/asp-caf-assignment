@@ -187,6 +187,64 @@ def cli() -> None:
             },
             'help': '📊 Display differences between two commits',
         },
+        'add_user': {
+            'func': cli_commands.add_user,
+            'args': {
+                **_repo_args,
+                'username': {
+                    'type': str,
+                    'help': '👤 Username to add',
+                },
+            },
+            'help': 'Add a user to the repository',
+        },
+        'users': {
+            'func': cli_commands.users,
+            'args': {
+                **_repo_args,
+            },
+            'help': 'List users in the repository',
+        },
+        'set_user': {
+            'func': cli_commands.set_user,
+            'args': {
+                **_repo_args,
+                'username': {
+                    'type': str,
+                    'help': '👤 Username to set as current',
+                },
+            },
+            'help': 'Set the current user',
+        },
+        'whoami': {
+            'func': cli_commands.whoami,
+            'args': {
+                **_repo_args,
+            },
+            'help': 'Show the current user',
+        },
+        'unset_user': {
+            'func': cli_commands.unset_user,
+            'args': {
+                **_repo_args,
+            },
+            'help': 'Unset the current user',
+        },
+        'delete_user': {
+            'func': cli_commands.delete_user,
+            'args': {
+                **_repo_args,
+                'username': {
+                    'type': str,
+                    'help': '👤 Username to delete',
+                },
+            },
+            'help': 'Delete a user from the repository',
+        },
+
+
+
+
     }
 
     # Register commands

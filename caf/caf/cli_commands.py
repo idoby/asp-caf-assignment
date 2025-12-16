@@ -349,3 +349,116 @@ def _print_diffs(diff_stack: MutableSequence[tuple[Sequence[Diff], int]]) -> Non
 
             if diff.children:
                 diff_stack.append((diff.children, indent + 3))
+
+def add_user(**kwargs) -> int:
+    repo = _repo_from_cli_kwargs(kwargs)
+    username = kwargs.get('username')
+
+    if not username:
+        _print_error('Username is required.')
+        return -1
+
+    try:
+        repo.add_user(username)
+        _print_success(f'User "{username}" added.')
+        return 0
+    except RepositoryNotFoundError:
+        _print_error(f'No repository found at {repo.repo_path()}')
+        return -1
+    except Exception as e:
+        _print_error(str(e))
+        return -1
+def users(**kwargs) -> int:
+    repo = _repo_from_cli_kwargs(kwargs)
+
+    try:
+        users = repo.users()
+        if not users:
+            _print_success('No users found.')
+            return 0
+
+        _print_success('Users:')
+        for u in users:
+            print(u)
+        return 0
+
+    except RepositoryNotFoundError:
+        _print_error(f'No repository found at {repo.repo_path()}')
+        return -1
+    except Exception as e:
+        _print_error(str(e))
+        return -1
+def set_user(**kwargs) -> int:
+    repo = _repo_from_cli_kwargs(kwargs)
+    username = kwargs.get('username')
+
+    if not username:
+        _print_error('Username is required.')
+        return -1
+
+    try:
+        repo.set_current_user(username)
+        _print_success(f'Current user set to "{username}".')
+        return 0
+    except RepositoryNotFoundError:
+        _print_error(f'No repository found at {repo.repo_path()}')
+        return -1
+    except RepositoryError as e:
+        _print_error(str(e))
+        return -1
+    except Exception as e:
+        _print_error(str(e))
+        return -1
+def whoami(**kwargs) -> int:
+    repo = _repo_from_cli_kwargs(kwargs)
+
+    try:
+        user = repo.current_user()
+        if user is None:
+            _print_success('No current user set.')
+            return 0
+
+        _print_success(user)
+        return 0
+
+    except RepositoryNotFoundError:
+        _print_error(f'No repository found at {repo.repo_path()}')
+        return -1
+    except Exception as e:
+        _print_error(str(e))
+        return -1
+def unset_user(**kwargs) -> int:
+    repo = _repo_from_cli_kwargs(kwargs)
+
+    try:
+        repo.unset_current_user()
+        _print_success('Current user unset.')
+        return 0
+    except RepositoryNotFoundError:
+        _print_error(f'No repository found at {repo.repo_path()}')
+        return -1
+    except Exception as e:
+        _print_error(str(e))
+        return -1
+def delete_user(**kwargs) -> int:
+    repo = _repo_from_cli_kwargs(kwargs)
+    username = kwargs.get('username')
+
+    if not username:
+        _print_error('Username is required.')
+        return -1
+
+    try:
+        repo.delete_user(username)
+        _print_success(f'User "{username}" deleted.')
+        return 0
+    except RepositoryNotFoundError:
+        _print_error(f'No repository found at {repo.repo_path()}')
+        return -1
+    except RepositoryError as e:
+        _print_error(str(e))
+        return -1
+    except Exception as e:
+        _print_error(str(e))
+        return -1
+

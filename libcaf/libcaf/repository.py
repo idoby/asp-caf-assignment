@@ -641,6 +641,121 @@ class Repository:
 
         :return: The path to the HEAD file."""
         return self.repo_path() / HEAD_FILE
+    def users_file(self) -> Path:
+        return self.repo_path() / 'users'
+
+    def current_user_file(self) -> Path:
+        return self.repo_path() / 'CURRENT_USER'
+    
+    @requires_repo
+    def add_user(self, username: str) -> None:
+        """Add a user to the repository (idempotent)."""
+        username = username.strip()
+        if not username:
+            raise ValueError('Username is required')
+
+        users_path = self.users_file()
+
+        # Read existing users (if file doesn't exist yet, treat as empty)
+        if users_path.exists():
+            existing = {line.strip() for line in users_path.read_text().splitlines() if line.strip()}
+            if username in existing:
+                return
+        else:
+            existing = set()
+
+        # Append safely
+        users_path.parent.mkdir(parents=True, exist_ok=True)
+        with users_path.open('a', encoding='utf-8') as f:
+            # Ensure file ends with newline before appending (optional nicety)
+            if users_path.stat().st_size > 0 and not users_path.read_text(encoding='utf-8').endswith('\n'):
+                f.write('\n')
+            f.write(username + '\n')
+    
+    @requires_repo
+    def users(self) -> list[str]:
+        """Return all known users in the repository."""
+        users_path = self.users_file()
+        if not users_path.exists():
+            return []
+
+        users = [line.strip() for line in users_path.read_text(encoding='utf-8').splitlines()]
+        # Remove empties + de-duplicate while preserving order
+        seen: set[str] = set()
+        result: list[str] = []
+        for u in users:
+            if not u or u in seen:
+                continue
+            seen.add(u)
+            result.append(u)
+        return result
+    
+    @requires_repo
+    def set_current_user(self, username: str) -> None:
+        """Set the current user (must already exist in the repo users list)."""
+        username = username.strip()
+        if not username:
+            raise ValueError('Username is required')
+
+        if username not in set(self.users()):
+            raise RepositoryError(f'User "{username}" does not exist. Add it first.')
+
+        current_path = self.current_user_file()
+        current_path.parent.mkdir(parents=True, exist_ok=True)
+        current_path.write_text(username + '\n', encoding='utf-8')
+    
+    @requires_repo
+    def current_user(self) -> str | None:
+        """Return the current user, or None if not set."""
+        current_path = self.current_user_file()
+        if not current_path.exists():
+            return None
+
+        user = current_path.read_text(encoding='utf-8').strip()
+        return user or None
+    
+    @requires_repo
+    def unset_current_user(self) -> None:
+        """Unset the current user."""
+        current_path = self.current_user_file()
+        if current_path.exists():
+            current_path.unlink()
+
+    @requires_repo
+    def delete_user(self, username: str) -> None:
+        """Delete a user from the repository."""
+        username = username.strip()
+        if not username:
+            raise ValueError('Username is required')
+
+        users_path = self.users_file()
+        if not users_path.exists():
+            raise RepositoryError(f'User "{username}" does not exist.')
+
+        lines = [line.strip() for line in users_path.read_text(encoding='utf-8').splitlines()]
+        existing = [u for u in lines if u]  # remove empty lines
+
+        if username not in existing:
+            raise RepositoryError(f'User "{username}" does not exist.')
+
+        # Remove the user, preserve order, de-dupe
+        new_users: list[str] = []
+        seen: set[str] = set()
+        for u in existing:
+            if u == username:
+                continue
+            if u in seen:
+                continue
+            seen.add(u)
+            new_users.append(u)
+
+        # Write back
+        users_path.write_text(''.join(u + '\n' for u in new_users), encoding='utf-8')
+
+        # If deleted user was current, unset it
+        if self.current_user() == username:
+            self.unset_current_user()
+
 
 
 def branch_ref(branch: str) -> SymRef:
@@ -656,3 +771,4 @@ def tag_ref(tag: str) -> SymRef:
     :param tag: The name of the tag.
     :return: A SymRef object representing the tag reference."""
     return SymRef(f'{TAGS_DIR}/{tag}')
+
