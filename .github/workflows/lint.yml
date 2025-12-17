@@ -9,6 +9,8 @@ on:
 jobs:
   lint:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     steps:
     - uses: actions/checkout@v4
@@ -19,7 +21,7 @@ jobs:
         python-version: '3.12'
 
     - name: Install linting dependencies
-      run: pip install ruff mypy
+      run: pip install 'ruff>=0.11.13' 'mypy>=1.16.0'
 
     - name: Run ruff linter
       run: ruff check --output-format=github .
@@ -27,5 +29,5 @@ jobs:
     - name: Run mypy type checker
       run: |
         echo "::add-matcher::.github/matchers/mypy.json"
-        mypy caf libcaf tests --ignore-missing-imports --show-error-codes --no-error-summary
+        mypy caf libcaf tests --show-error-codes --no-error-summary
 
