@@ -87,6 +87,20 @@ else
 		pytest tests
 endif
 
+# === Linting ===
+
+lint:
+	@echo "🔍 Running ruff linter..."
+	ruff check .
+	@echo "🔍 Running mypy type checker..."
+	mypy caf libcaf tests
+
+lint-fix:
+	@echo "🔧 Running ruff linter with auto-fix..."
+	ruff check --fix .
+	@echo "🔍 Running mypy type checker..."
+	mypy caf libcaf tests
+
 # === Utility ===
 
 clean-coverage:
@@ -114,6 +128,9 @@ help:
 	@echo ""
 	@echo "  test                    - Run all tests (Python + C++ coverage if enabled)"
 	@echo ""
+	@echo "  lint                    - Run ruff and mypy linters"
+	@echo "  lint-fix                - Run ruff linter with auto-fix and mypy"
+	@echo ""
 	@echo "  clean-coverage          - Remove coverage files"
 	@echo "  clean                   - Remove build artifacts"
 	@echo ""
@@ -124,4 +141,5 @@ help:
 	build-container run attach stop \
 	deploy deploy-libcaf deploy-caf \
 	test \
+	lint lint-fix \
 	clean-coverage clean help
