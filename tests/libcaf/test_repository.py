@@ -210,13 +210,13 @@ def test_commit_working_dir_empty_author_or_message_raises_error(temp_repo: Repo
         temp_repo.commit_working_dir('', 'Valid message')
 
     with raises(ValueError, match='Author is required'):
-        temp_repo.commit_working_dir(None, 'Valid message')  # type: ignore
+        temp_repo.commit_working_dir(None, 'Valid message')  # type: ignore[arg-type]
 
     with raises(ValueError, match='Commit message is required'):
         temp_repo.commit_working_dir('Valid author', '')
 
     with raises(ValueError, match='Commit message is required'):
-        temp_repo.commit_working_dir('Valid author', None)  # type: ignore
+        temp_repo.commit_working_dir('Valid author', None)  # type: ignore[arg-type]
 
     with raises(ValueError, match='Author is required'):
         temp_repo.commit_working_dir('', '')
