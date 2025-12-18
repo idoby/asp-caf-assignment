@@ -52,7 +52,7 @@ exclude = ['libcaf/_libcaf.pyi']
 select = ['ALL']
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = ["S101", "D103", "PT013", "INP001"]
+"tests/**/*.py" = ["S101", "D100", "D101", "D102", "D103", "PT013", "INP001"]
 
 [tool.ruff.lint.flake8-quotes]
 inline-quotes = 'single'
