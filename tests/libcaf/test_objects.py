@@ -19,10 +19,6 @@ def test_tree_entries_are_canonicalized() -> None:
     tree2_keys = list(tree2.records.keys())
     tree3_keys = list(tree3.records.keys())
 
-    print('Tree 1 keys:', tree1_keys)
-    print('Tree 2 keys:', tree2_keys)
-    print('Tree 3 keys:', tree3_keys)
-
     # The keys should be sorted alphabetically regardless of insertion order
     expected_keys = ['a_file', 'b_file', 'c_file']
 
