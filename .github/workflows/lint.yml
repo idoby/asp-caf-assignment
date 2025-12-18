@@ -24,7 +24,30 @@ jobs:
       run: pip install 'ruff>=0.11.13'
 
     - name: Run ruff linter
-      run: ruff check --output-format=github .
+      id: ruff
+      run: |
+        # Run ruff and capture output for job summary
+        set +e
+        ruff check --output-format=grouped . > /tmp/ruff_output.txt 2>&1
+        RUFF_EXIT=$?
+        set -e
+        
+        # Display output in logs
+        cat /tmp/ruff_output.txt
+        
+        # Create job summary with all errors
+        if [ -s /tmp/ruff_output.txt ]; then
+          echo "## 🔍 Ruff Linting Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat /tmp/ruff_output.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        # Also run with github format for annotations (limited by GitHub)
+        ruff check --output-format=github . || true
+        
+        exit $RUFF_EXIT
 
   mypy:
     runs-on: ubuntu-latest
@@ -43,7 +66,41 @@ jobs:
       run: pip install 'mypy>=1.16.0'
 
     - name: Run mypy type checker
+      id: mypy
       run: |
-        echo "::add-matcher::.github/matchers/mypy.json"
-        mypy caf libcaf tests --show-error-codes --no-error-summary
+        # Run mypy and capture output for job summary
+        set +e
+        mypy caf libcaf tests --show-error-codes --no-error-summary > /tmp/mypy_output.txt 2>&1
+        MYPY_EXIT=$?
+        set -e
+        
+        # Display output in logs
+        cat /tmp/mypy_output.txt
+        
+        # Create job summary with all errors
+        if [ -s /tmp/mypy_output.txt ]; then
+          echo "## 🔍 Mypy Type Checking Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat /tmp/mypy_output.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        # Generate annotations using workflow commands
+        while IFS= read -r line; do
+          # Parse mypy output: file:line: error: message [code]
+          if [[ "$line" =~ ^([^:]+):([0-9]+):\ (error|warning|note):\ (.+)$ ]]; then
+            file="${BASH_REMATCH[1]}"
+            line_num="${BASH_REMATCH[2]}"
+            level="${BASH_REMATCH[3]}"
+            message="${BASH_REMATCH[4]}"
+            if [[ "$level" == "error" ]]; then
+              echo "::error file=$file,line=$line_num::$message"
+            elif [[ "$level" == "warning" ]]; then
+              echo "::warning file=$file,line=$line_num::$message"
+            fi
+          fi
+        done < /tmp/mypy_output.txt
+        
+        exit $MYPY_EXIT
 
