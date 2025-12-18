@@ -4,6 +4,7 @@ from caf.cli import cli
 
 
 def main() -> None:
+    """Entry point for the CAF command-line interface."""
     cli()
 
 
