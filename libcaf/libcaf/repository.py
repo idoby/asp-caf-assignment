@@ -644,12 +644,22 @@ class Repository:
                 
                 try:
                     commit1 = load_commit(self.objects_dir(), current1)
-                    for parent in commit1.parents:
+                    parents = commit1.parent
+                    if parents is None:
+                        parents = []
+                    elif isinstance(parents, str):
+                        parents = [parents]
+
+                    for parent in parents:
                         if parent not in visited1:
                             visited1.add(parent)
                             queue1.append(parent)
+                except RepositoryError:
+                    raise
                 except Exception as e:
-                    raise RepositoryError(f"Error loading commit {current1}") from e
+                    raise RepositoryError(
+                        f"Corrupted commit object: {current1}"
+                    ) from e
 
             # Process queue2
             if queue2:
@@ -659,13 +669,22 @@ class Repository:
                 
                 try:
                     commit2 = load_commit(self.objects_dir(), current2)
-                    for parent in commit2.parents:
+                    parents = commit2.parent
+                    if parents is None:
+                        parents = []
+                    elif isinstance(parents, str):
+                        parents = [parents]
+
+                    for parent in parents:
                         if parent not in visited2:
                             visited2.add(parent)
                             queue2.append(parent)
+                except RepositoryError:
+                    raise
                 except Exception as e:
-                    raise RepositoryError(f"Error loading commit {current2}") from e
-
+                    raise RepositoryError(
+                        f"Corrupted commit object: {current2}"
+                    ) from e
         return None
 
     def head_file(self) -> Path:
