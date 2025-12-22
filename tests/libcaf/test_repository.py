@@ -358,4 +358,133 @@ def test_head_commit_with_symbolic_ref_returns_hash_ref(temp_repo: Repository) -
     # Update the HEAD to point to the commit we just created
     temp_repo.update_ref('heads/main', commit_ref)
 
+
     assert temp_repo.head_commit() == commit_ref
+
+
+def test_create_tag_with_explicit_commit(temp_repo: Repository) -> None:
+    # Create a commit
+    temp_file = temp_repo.working_dir / 'test.txt'
+    temp_file.write_text('Test content')
+    commit_ref = temp_repo.commit_working_dir('Author', 'Test commit')
+
+    # Create tag pointing to this commit
+    temp_repo.create_tag('v1.0.0', commit_ref)
+
+    assert temp_repo.tag_exists('v1.0.0')
+    assert 'v1.0.0' in temp_repo.tags()
+
+
+def test_create_tag_with_head_default(temp_repo: Repository) -> None:
+    # Create a commit
+    temp_file = temp_repo.working_dir / 'test.txt'
+    temp_file.write_text('Test content')
+    commit_ref = temp_repo.commit_working_dir('Author', 'Test commit')
+
+    # Create tag without specifying commit (should use HEAD)
+    temp_repo.create_tag('v1.0.0', 'HEAD')
+
+    assert temp_repo.tag_exists('v1.0.0')
+    tags = temp_repo.tags()
+    assert len(tags) == 1
+    assert 'v1.0.0' in tags
+
+
+def test_create_multiple_tags_same_commit(temp_repo: Repository) -> None:
+    # Create a commit
+    temp_file = temp_repo.working_dir / 'test.txt'
+    temp_file.write_text('Test content')
+    commit_ref = temp_repo.commit_working_dir('Author', 'Test commit')
+
+    # Create multiple tags for the same commit
+    temp_repo.create_tag('v1.0.0', commit_ref)
+    temp_repo.create_tag('stable', commit_ref)
+    temp_repo.create_tag('release', commit_ref)
+
+    assert temp_repo.tag_exists('v1.0.0')
+    assert temp_repo.tag_exists('stable')
+    assert temp_repo.tag_exists('release')
+    
+    tags = temp_repo.tags()
+    assert len(tags) == 3
+    assert set(tags) == {'v1.0.0', 'stable', 'release'}
+
+
+def test_create_tag_empty_name_raises_error(temp_repo: Repository) -> None:
+    temp_file = temp_repo.working_dir / 'test.txt'
+    temp_file.write_text('Test content')
+    commit_ref = temp_repo.commit_working_dir('Author', 'Test commit')
+
+    with raises(ValueError):
+        temp_repo.create_tag('', commit_ref)
+
+
+def test_create_tag_duplicate_raises_error(temp_repo: Repository) -> None:
+    temp_file = temp_repo.working_dir / 'test.txt'
+    temp_file.write_text('Test content')
+    commit_ref = temp_repo.commit_working_dir('Author', 'Test commit')
+
+    temp_repo.create_tag('v1.0.0', commit_ref)
+    
+    with raises(RepositoryError):
+        temp_repo.create_tag('v1.0.0', commit_ref)
+
+
+def test_create_tag_no_commits_raises_error(temp_repo: Repository) -> None:
+    # Try to create tag when HEAD has no commit
+    with raises(RepositoryError):
+        temp_repo.create_tag('v1.0.0', 'HEAD')
+
+
+def test_create_tag_invalid_ref_raises_error(temp_repo: Repository) -> None:
+    with raises(RefError):
+        temp_repo.create_tag('v1.0.0', 'invalid_ref')
+
+
+def test_delete_tag(temp_repo: Repository) -> None:
+    temp_file = temp_repo.working_dir / 'test.txt'
+    temp_file.write_text('Test content')
+    commit_ref = temp_repo.commit_working_dir('Author', 'Test commit')
+
+    temp_repo.create_tag('v1.0.0', commit_ref)
+    assert temp_repo.tag_exists('v1.0.0')
+
+    temp_repo.delete_tag('v1.0.0')
+    assert not temp_repo.tag_exists('v1.0.0')
+    assert 'v1.0.0' not in temp_repo.tags()
+
+
+def test_delete_tag_empty_name_raises_error(temp_repo: Repository) -> None:
+    with raises(ValueError):
+        temp_repo.delete_tag('')
+
+
+def test_delete_tag_nonexistent_raises_error(temp_repo: Repository) -> None:
+    with raises(RepositoryError):
+        temp_repo.delete_tag('nonexistent')
+
+
+def test_list_tags_multiple(temp_repo: Repository) -> None:
+    temp_file = temp_repo.working_dir / 'test.txt'
+    temp_file.write_text('Test content')
+    commit_ref = temp_repo.commit_working_dir('Author', 'Test commit')
+
+    temp_repo.create_tag('v1.0.0', commit_ref)
+    temp_repo.create_tag('v2.0.0', commit_ref)
+    temp_repo.create_tag('stable', commit_ref)
+
+    tags = temp_repo.tags()
+    assert len(tags) == 3
+    assert set(tags) == {'v1.0.0', 'v2.0.0', 'stable'}
+
+
+def test_tags_dir_created_on_first_tag(temp_repo: Repository) -> None:
+    tags_dir = temp_repo.tags_dir()
+    assert not tags_dir.exists()
+
+    temp_file = temp_repo.working_dir / 'test.txt'
+    temp_file.write_text('Test content')
+    commit_ref = temp_repo.commit_working_dir('Author', 'Test commit')
+
+    temp_repo.create_tag('v1.0.0', commit_ref)
+    assert tags_dir.exists()

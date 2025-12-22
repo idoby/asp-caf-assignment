@@ -275,3 +275,81 @@ def _print_diffs(diff_stack: MutableSequence[tuple[Sequence[Diff], int]]) -> Non
 
             if diff.children:
                 diff_stack.append((diff.children, indent + 3))
+
+
+def create_tag(**kwargs) -> int:
+    repo = _repo_from_cli_kwargs(kwargs)
+    tag_name = kwargs.get('tag_name')
+    commit_hash = kwargs.get('commit_hash')
+
+    if not tag_name:
+        _print_error('Tag name is required.')
+        return -1
+    
+    try:
+        repo.create_tag(tag_name, commit_hash)
+        _print_success(f'Tag "{tag_name}" created.')
+        return 0
+    except RepositoryNotFoundError:
+        _print_error(f'No repository found at {repo.repo_path()}')
+        return -1
+    except RepositoryError as e:
+        _print_error(f'Repository error: {e}')
+        return -1
+    except ValueError as e:
+        _print_error(str(e))
+        return -1
+
+
+def delete_tag(**kwargs) -> int:
+    repo = _repo_from_cli_kwargs(kwargs)
+    tag_name = kwargs.get('tag_name')
+
+    if not tag_name:
+        _print_error('Tag name is required.')
+        return -1
+
+    try:
+        repo.delete_tag(tag_name)
+        _print_success(f'Tag "{tag_name}" deleted.')
+        return 0
+    except RepositoryNotFoundError:
+        _print_error(f'No repository found at {repo.repo_path()}')
+        return -1
+    except RepositoryError as e:
+        _print_error(f'Repository error: {e}')
+        return -1
+    except ValueError as e:
+        _print_error(str(e))
+        return -1
+
+
+def tags(**kwargs) -> int:
+    """List all tags in the repository.
+    
+    :param kwargs: Command arguments (working_dir_path)
+    :return: 0 on success, -1 on failure
+    """
+    repo = _repo_from_cli_kwargs(kwargs)
+    
+    try:
+        tag_list = repo.tags()
+
+        if not tag_list:
+            _print_success('No tags found.')
+            return 0
+
+        for tag_name in sorted(tag_list):
+            # Read the commit hash from the tag file
+            tag_path = repo.tags_dir() / tag_name
+            commit_hash = tag_path.read_text().strip()
+            print(f'{tag_name} -> {commit_hash}')
+        
+        return 0
+    except RepositoryNotFoundError:
+        _print_error(f'No repository found at {repo.repo_path()}')
+        return -1
+    except RepositoryError as e:
+        _print_error(f'Repository error: {e}')
+        return -1
+
