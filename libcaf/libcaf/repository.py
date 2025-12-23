@@ -750,9 +750,9 @@ class Repository:
             raise RepositoryError(f'User "{username}" does not exist.')
 
         was_current = (self.current_user() == username)
-        users_path.unlink()
         if was_current:
             self.unset_current_user()
+        users_path.unlink()
             
     def _validate_username(self, username: str) -> str:
         username = username.strip()
