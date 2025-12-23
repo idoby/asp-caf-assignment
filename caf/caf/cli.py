@@ -244,7 +244,6 @@ def cli() -> None:
 
 
 
-
     }
 
     # Register commands

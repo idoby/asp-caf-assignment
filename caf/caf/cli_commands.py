@@ -368,6 +368,7 @@ def add_user(**kwargs) -> int:
     except Exception as e:
         _print_error(str(e))
         return -1
+    
 def users(**kwargs) -> int:
     repo = _repo_from_cli_kwargs(kwargs)
 
@@ -388,6 +389,8 @@ def users(**kwargs) -> int:
     except Exception as e:
         _print_error(str(e))
         return -1
+    
+    
 def set_user(**kwargs) -> int:
     repo = _repo_from_cli_kwargs(kwargs)
     username = kwargs.get('username')
@@ -409,6 +412,7 @@ def set_user(**kwargs) -> int:
     except Exception as e:
         _print_error(str(e))
         return -1
+    
 def whoami(**kwargs) -> int:
     repo = _repo_from_cli_kwargs(kwargs)
 
@@ -427,6 +431,7 @@ def whoami(**kwargs) -> int:
     except Exception as e:
         _print_error(str(e))
         return -1
+    
 def unset_user(**kwargs) -> int:
     repo = _repo_from_cli_kwargs(kwargs)
 
@@ -440,6 +445,7 @@ def unset_user(**kwargs) -> int:
     except Exception as e:
         _print_error(str(e))
         return -1
+    
 def delete_user(**kwargs) -> int:
     repo = _repo_from_cli_kwargs(kwargs)
     username = kwargs.get('username')

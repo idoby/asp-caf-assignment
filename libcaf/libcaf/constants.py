@@ -12,3 +12,5 @@ TAGS_DIR = 'tags'
 
 HASH_LENGTH = hash_length()
 HASH_CHARSET = '0123456789abcdef'
+USERS_DIR = 'users'
+CURRENT_USER_FILE = 'CURRENT_USER'
