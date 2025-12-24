@@ -3,7 +3,7 @@ from shutil import rmtree
 
 from libcaf.constants import DEFAULT_BRANCH, HASH_LENGTH
 from libcaf.plumbing import hash_object, load_commit, load_tree
-from libcaf.ref import RefError, SymRef
+from libcaf.ref import RefError, SymRef, write_ref
 from libcaf.repository import HashRef, Repository, RepositoryError, Tag, branch_ref
 from pytest import raises
 
@@ -394,6 +394,48 @@ def test_diff_commits_corrupted_subtree_raises_error(temp_repo: Repository) -> N
     # Attempting to diff commits should raise RepositoryError due to the corrupted subtree
     with raises(RepositoryError):
         temp_repo.diff_commits(commit_ref1, commit_ref2)
+
+
+def test_common_ancestor_linear_history(temp_repo: Repository) -> None:
+    temp_file = temp_repo.working_dir / 'test_file.txt'
+    temp_file.write_text('Initial commit content')
+    base_commit = temp_repo.commit_working_dir('Author', 'Base commit')
+
+    temp_file.write_text('Second commit content')
+    tip_commit = temp_repo.commit_working_dir('Author', 'Second commit')
+
+    assert temp_repo.common_ancestor(tip_commit, base_commit) == base_commit
+
+
+def test_common_ancestor_branches(temp_repo: Repository) -> None:
+    temp_file = temp_repo.working_dir / 'test_file.txt'
+    temp_file.write_text('Base content')
+    base_commit = temp_repo.commit_working_dir('Author', 'Base commit')
+
+    temp_file.write_text('Main branch change')
+    main_commit = temp_repo.commit_working_dir('Author', 'Main commit')
+
+    temp_repo.add_branch('feature')
+    temp_repo.update_ref('heads/feature', base_commit)
+    write_ref(temp_repo.head_file(), branch_ref('feature'))
+
+    temp_file.write_text('Feature branch change')
+    feature_commit = temp_repo.commit_working_dir('Author', 'Feature commit')
+
+    assert temp_repo.common_ancestor(main_commit, feature_commit) == base_commit
+    assert temp_repo.common_ancestor(feature_commit, main_commit) == base_commit
+
+
+def test_common_ancestor_no_common_root(temp_repo: Repository) -> None:
+    temp_file = temp_repo.working_dir / 'test_file.txt'
+    temp_file.write_text('Root A')
+    root_a = temp_repo.commit_working_dir('Author', 'Root A')
+
+    temp_repo.head_file().write_text('')
+    temp_file.write_text('Root B')
+    root_b = temp_repo.commit_working_dir('Author', 'Root B')
+
+    assert temp_repo.common_ancestor(root_a, root_b) is None
 
 
 def test_head_ref_missing_head_file_raises_error(temp_repo: Repository) -> None:

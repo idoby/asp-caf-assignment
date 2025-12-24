@@ -646,6 +646,54 @@ class Repository:
 
         return top_level_diff.children
 
+    @requires_repo
+    def common_ancestor(self, commit_ref1: Ref | None = None, commit_ref2: Ref | None = None) -> HashRef | None:
+        """Find the common ancestor of two commits, if one exists.
+
+        :param commit_ref1: The first commit reference. If None, defaults to the current HEAD.
+        :param commit_ref2: The second commit reference. If None, defaults to the current HEAD.
+        :return: The HashRef of the common ancestor, or None if there is no common ancestor.
+        :raises RepositoryError: If commits cannot be resolved or loaded.
+        :raises RepositoryNotFoundError: If the repository does not exist."""
+        if commit_ref1 is None:
+            commit_ref1 = self.head_ref()
+        if commit_ref2 is None:
+            commit_ref2 = self.head_ref()
+
+        try:
+            commit_hash1 = self.resolve_ref(commit_ref1)
+            commit_hash2 = self.resolve_ref(commit_ref2)
+
+            if commit_hash1 is None:
+                msg = f'Cannot resolve reference {commit_ref1}'
+                raise RefError(msg)
+            if commit_hash2 is None:
+                msg = f'Cannot resolve reference {commit_ref2}'
+                raise RefError(msg)
+        except Exception as e:
+            msg = 'Error resolving commit references'
+            raise RepositoryError(msg) from e
+
+        try:
+            ancestors: set[HashRef] = set()
+            current_hash = commit_hash1
+            while current_hash:
+                ancestors.add(HashRef(current_hash))
+                commit = load_commit(self.objects_dir(), current_hash)
+                current_hash = HashRef(commit.parent) if commit.parent else None
+
+            current_hash = commit_hash2
+            while current_hash:
+                if current_hash in ancestors:
+                    return HashRef(current_hash)
+                commit = load_commit(self.objects_dir(), current_hash)
+                current_hash = HashRef(commit.parent) if commit.parent else None
+        except Exception as e:
+            msg = 'Error loading commit'
+            raise RepositoryError(msg) from e
+
+        return None
+
         
 
     def head_file(self) -> Path:
@@ -666,5 +714,4 @@ def branch_ref(branch: str) -> SymRef:
 def tag_ref(tag: str) -> SymRef:
     """Create a symbolic reference for a tag name."""
     return SymRef(f'{TAGS_DIR}/{tag}')
-
 
