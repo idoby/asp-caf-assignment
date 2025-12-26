@@ -33,8 +33,9 @@ void save_commit(const std::string &root_dir, const Commit &commit) {
 
         if (write(fd, &commit.timestamp, sizeof(commit.timestamp)) != sizeof(commit.timestamp))
             throw std::runtime_error("Failed to write timestamp");
-
-        unit32_t parents_count = commit.parents.size();
+        
+        uint32_t parents_count;
+        parents_count = commit.parents.size();
         if (write(fd, &parents_count, sizeof(parents_count)) != sizeof(parents_count))
             throw std::runtime_error("Failed to write parents count");
             
@@ -67,7 +68,7 @@ Commit load_commit(const std::string &root_dir, const std::string &commit_hash) 
         throw std::runtime_error("Failed to read parents count");
 
     std::vector<std::string> parents;
-    for (uint32_t i = 0; i < parents_count; ++i) {
+    for (uint32_t i = 0; i < parents_count; ++i) { 
         parents.push_back(read_length_prefixed_string(fd));
     }
 
