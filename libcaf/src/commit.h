@@ -21,26 +21,36 @@ public:
     Commit(const std::string& tree_hash,
            const std::string& author,
            const std::string& message,
-           std::time_t timestamp);
+           std::time_t timestamp):
+          tree_hash(tree_hash), author(author), message(message), timestamp(timestamp), parents() {}
 
     // Regular commit (single parent)
     Commit(const std::string& tree_hash,
            const std::string& parent,
            const std::string& author,
            const std::string& message,
-           std::time_t timestamp);
+           std::time_t timestamp):
+          tree_hash(tree_hash), author(author), message(message), timestamp(timestamp), parents{parent} {}
 
     // Merge commit (multiple parents)
     Commit(const std::string& tree_hash,
            const std::vector<std::string>& parents,
            const std::string& author,
            const std::string& message,
-           std::time_t timestamp);
+           std::time_t timestamp):
+          tree_hash(tree_hash), author(author), message(message), timestamp(timestamp), parents(parents) {}
 
     // --- Accessors ---
 
-    const std::vector<std::string>& get_parents() const;
-    const std::string& get_primary_parent() const;
+    const std::vector<std::string>& get_parents() const{
+        return parents;
+    }
+    const std::string& get_primary_parent() const {
+        if (parents.empty()) {
+            throw std::runtime_error("No parents available");
+        }
+        return parents[0];
+    }
 };
 
 #endif // COMMIT_H
