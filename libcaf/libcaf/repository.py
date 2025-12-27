@@ -494,12 +494,10 @@ class Repository:
         tree_hash = self.save_dir(self.working_dir)
 
         # Commit now expects a list of parent hashes.
-        parents: list[str]
+        parents = []
 
-        if parent_commit_ref is None:
-            parents = []
-        else:
-            parents = [str(parent_commit_ref)]
+        if parent_commit_ref is not None:
+            parents.append(parent_commit_ref)
 
         commit = Commit(tree_hash, author, message, int(datetime.now().timestamp()), parents)
         commit_ref = HashRef(hash_object(commit))

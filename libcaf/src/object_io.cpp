@@ -34,8 +34,7 @@ void save_commit(const std::string &root_dir, const Commit &commit) {
         if (write(fd, &commit.timestamp, sizeof(commit.timestamp)) != sizeof(commit.timestamp))
             throw std::runtime_error("Failed to write timestamp");
         
-        uint32_t parents_count;
-        parents_count = commit.parents.size();
+        const uint32_t parents_count = commit.parents.size();
         if (write(fd, &parents_count, sizeof(parents_count)) != sizeof(parents_count))
             throw std::runtime_error("Failed to write parents count");
             
@@ -75,13 +74,8 @@ Commit load_commit(const std::string &root_dir, const std::string &commit_hash) 
     flock(fd, LOCK_UN);
     close(fd);
 
-    if (parents.empty()) {
-        return Commit(tree_hash, author, message, timestamp);
-    } else if (parents.size() == 1) {
-        return Commit(tree_hash, parents[0], author, message, timestamp);
-    } else {
-        return Commit(tree_hash, parents, author, message, timestamp);
-    }
+    return Commit(tree_hash, author, message, timestamp, parents);
+
 }
 
 void save_tree(const std::string &root_dir, const Tree &tree) {
