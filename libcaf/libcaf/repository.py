@@ -541,7 +541,57 @@ class Repository:
         except Exception as e:
             msg = 'Error loading tree'
             raise RepositoryError(msg) from e
+        
+        return self._diff_trees(tree1, tree2)
+    
+    @requires_repo
+    def diff_commit_dir(self, commit_ref: Ref | None = None, path: Path | None = None) -> Sequence[Diff]:
+        """Generate a diff between commit and directory in the repository.
 
+        :param commit_ref1: The reference to the commit. If None, defaults to the current HEAD.
+        :param commit_ref2: The reference to the directory. If None, defaults to current working directory.
+        :return: A list of Diff objects representing the differences between the two commits.
+        :raises RepositoryError: If a commit or tree cannot be loaded.
+        :raises RepositoryNotFoundError: If the repository does not exist."""
+        if commit_ref is None:
+            commit_ref = self.head_ref()
+            
+        if path is None:
+            path = self.working_dir
+
+        try:
+            commit_hash = self.resolve_ref(commit_ref)
+
+            if commit_hash is None:
+                msg = f'Cannot resolve reference {commit_ref}'
+                raise RefError(msg)
+
+            commit = load_commit(self.objects_dir(), commit_hash)
+            commit_tree = load_tree(self.objects_dir(), commit.tree_hash)
+        except Exception as e:
+            msg = 'Error loading commit / tree'
+            raise RepositoryError(msg) from e
+        
+        dir_tree_hash = self.save_dir(path)  # HashRef
+
+        
+        if commit.tree_hash == dir_tree_hash:
+            return []
+
+        try:
+            dir_tree = load_tree(self.objects_dir(), dir_tree_hash)
+        except Exception as e:
+            msg = 'Error loading tree'
+            raise RepositoryError(msg) from e
+        
+        return self._diff_trees(commit_tree, dir_tree)
+    @requires_repo
+    
+    def _diff_trees(self, tree1: Tree | None, tree2: Tree | None) -> Sequence[Diff]:
+        """Generate a diff between two Tree objects.
+
+        Convention: tree1 = old, tree2 = new.
+        """
         top_level_diff = Diff(TreeRecord(TreeRecordType.TREE, '', ''), None, [])
         stack = [(tree1, tree2, top_level_diff)]
 

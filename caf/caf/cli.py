@@ -183,6 +183,8 @@ def cli() -> None:
                 'commit2': {
                     'type': str,
                     'help': '🔄 Second commit hash to diff',
+                    'nargs': '?',
+                    'default': None,
                 },
             },
             'help': '📊 Display differences between two commits',
@@ -195,6 +197,7 @@ def cli() -> None:
         for arg_name, arg_info in command_info['args'].items():
             arg_type = arg_info['type']
             arg_help = arg_info['help']
+            arg_nargs = arg_info.get('nargs')
             arg_default = arg_info.get('default')
             arg_flag = arg_info.get('flag', False)
 
@@ -203,10 +206,17 @@ def cli() -> None:
                 command_sub.add_argument(f'-{arg_short_flag}', f'--{arg_name}', help=arg_help, action='store_true',
                                          default=arg_default)
             elif arg_default is not None:
-                command_sub.add_argument(f'--{arg_name}', type=arg_type, help=f'{arg_help} (default: %(default)s)',
+                if arg_nargs is not None:
+                    command_sub.add_argument(f'--{arg_name}', type=arg_type, nargs=arg_nargs, help=f'{arg_help} (default: %(default)s)',
+                                         default=arg_default)
+                else:
+                    command_sub.add_argument(f'--{arg_name}', type=arg_type, help=f'{arg_help} (default: %(default)s)',
                                          default=arg_default)
             else:
-                command_sub.add_argument(arg_name, type=arg_type, help=arg_help)
+                if arg_nargs is not None:
+                    command_sub.add_argument(arg_name, type=arg_type, nargs=arg_nargs, help=arg_help)
+                else:
+                    command_sub.add_argument(arg_name, type=arg_type, help=arg_help)
 
     command_args = parser.parse_args()
     if command_args.command is None:
