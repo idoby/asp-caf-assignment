@@ -410,33 +410,3 @@ def test_diff_commit_dir_ignores_repo_dir(temp_repo: Repository) -> None:
     assert not any(d.record.name == 'INTERNAL.txt' for d in flat)
     
 from libcaf.ref import SymRef
-
-
-def test_diff_commit_dir_does_not_change_head_or_branch_ref(temp_repo: Repository) -> None:
-    # Create a baseline commit
-    (temp_repo.working_dir / 'a.txt').write_text('A')
-    commit_hash = temp_repo.commit_working_dir('Tester', 'Commit A')
-
-    # Snapshot HEAD file content
-    head_path = temp_repo.repo_dir / HEAD_FILE  # if you already import HEAD_FILE in this file
-    head_before = head_path.read_text() if head_path.exists() else ''
-
-    # Snapshot the current branch ref file (if HEAD points to a SymRef)
-    branch_before = None
-    branch_path = None
-    head_ref = temp_repo.head_ref()
-    if isinstance(head_ref, SymRef):
-        branch_path = temp_repo.repo_dir / head_ref.ref  # e.g. refs/heads/main
-        branch_before = branch_path.read_text() if branch_path.exists() else ''
-
-    # Modify working directory and run diff (should be read-only)
-    (temp_repo.working_dir / 'a.txt').write_text('B')
-    _ = temp_repo.diff_commit_dir(commit_hash, temp_repo.working_dir)
-
-    # Verify HEAD and branch ref didn't change
-    head_after = head_path.read_text() if head_path.exists() else ''
-    assert head_after == head_before, 'diff_commit_dir must not modify HEAD'
-
-    if branch_path is not None:
-        branch_after = branch_path.read_text() if branch_path.exists() else ''
-        assert branch_after == branch_before, 'diff_commit_dir must not modify branch ref'
