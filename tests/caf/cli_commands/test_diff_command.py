@@ -147,14 +147,9 @@ def test_diff_missing_parameters(temp_repo: Repository, capsys: CaptureFixture[s
     assert cli_commands.diff(working_dir_path=temp_repo.working_dir,
                              commit1=None, commit2='def456') == -1
     assert 'Both commit1 and commit2' in capsys.readouterr().err
-
-    assert cli_commands.diff(working_dir_path=temp_repo.working_dir,
-                             commit1='abc123', commit2=None) == -1
-    assert 'Both commit1 and commit2' in capsys.readouterr().err
-
     assert cli_commands.diff(working_dir_path=temp_repo.working_dir,
                              commit1=None, commit2=None) == -1
-    assert 'Both commit1 and commit2' in capsys.readouterr().err
+    assert 'commit1 is required' in capsys.readouterr().err
 
 
 def test_diff_no_changes(temp_repo: Repository, parse_commit_hash: Callable[[], str],
@@ -214,3 +209,62 @@ def test_diff_nested_children_indentation(temp_repo: Repository, parse_commit_ha
 
     assert found_directory_diff, 'Directory modification should be detected'
     assert found_nested_indentation, 'Nested children should be indented by 3 spaces'
+
+def test_diff_commit_vs_working_dir_supported(temp_repo: Repository, parse_commit_hash: Callable[[], str], 
+                                              capsys: CaptureFixture[str]) -> None:
+    # create a real commit
+    (temp_repo.working_dir / 'a.txt').write_text('A')
+    assert cli_commands.commit(working_dir_path=temp_repo.working_dir, author='Test', message='Commit') == 0
+    commit_hash = parse_commit_hash()
+
+    # no working-dir changes => no diffs
+    assert cli_commands.diff(working_dir_path=temp_repo.working_dir,
+                             commit1=commit_hash, commit2=None) == 0
+    assert 'No changes detected' in capsys.readouterr().out
+    
+def test_diff_commit_vs_working_dir_no_changes(temp_repo: Repository, parse_commit_hash: Callable[[], str],
+                                               capsys: CaptureFixture[str]) -> None:
+    (temp_repo.working_dir / 'a.txt').write_text('A')
+
+    assert cli_commands.commit(
+        working_dir_path=temp_repo.working_dir,
+        author='Test',
+        message='Commit A'
+    ) == 0
+    commit_hash = parse_commit_hash()
+
+    # No working-dir changes
+    assert cli_commands.diff(
+        working_dir_path=temp_repo.working_dir,
+        commit1=commit_hash,
+        commit2=None
+    ) == 0
+
+    out = capsys.readouterr().out
+    assert 'No changes detected' in out
+    
+def test_diff_commit_vs_working_dir_shows_changes(temp_repo: Repository, parse_commit_hash: Callable[[], str], 
+                                                  capsys: CaptureFixture[str]) -> None:
+    # Baseline commit
+    (temp_repo.working_dir / 'a.txt').write_text('A')
+    assert cli_commands.commit(
+        working_dir_path=temp_repo.working_dir,
+        author='Test',
+        message='Commit A'
+    ) == 0
+    commit_hash = parse_commit_hash()
+
+    # Working dir changes after commit
+    (temp_repo.working_dir / 'a.txt').write_text('A2')  # modified
+    (temp_repo.working_dir / 'b.txt').write_text('B')   # added
+
+    assert cli_commands.diff(
+        working_dir_path=temp_repo.working_dir,
+        commit1=commit_hash,
+        commit2=None
+    ) == 0
+
+    out = capsys.readouterr().out
+    assert 'Diff:' in out
+    assert 'Modified: a.txt' in out
+    assert 'Added: b.txt' in out
