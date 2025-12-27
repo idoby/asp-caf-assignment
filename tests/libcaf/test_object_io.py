@@ -6,7 +6,7 @@ from libcaf import Commit, Tree, TreeRecord, TreeRecordType
 
 
 def test_save_load_commit(temp_repo_dir: Path) -> None:
-    commit = Commit('tree_hash123', 'Author', 'Commit message', 1234567890, 'commithash123parent')
+    commit = Commit('tree_hash123', 'Author', 'Commit message', 1234567890, ['commithash123parent'])
     commit_hash = hash_object(commit)
 
     save_commit(temp_repo_dir, commit)
@@ -16,11 +16,11 @@ def test_save_load_commit(temp_repo_dir: Path) -> None:
     assert loaded_commit.author == commit.author
     assert loaded_commit.message == commit.message
     assert loaded_commit.timestamp == commit.timestamp
-    assert loaded_commit.parent == commit.parent
+    assert loaded_commit.parents == commit.parents
 
 
 def test_save_load_commit_without_parent(temp_repo_dir: Path) -> None:
-    commit_none_parent = Commit('commithash456', 'Author', 'Commit message', 1234567890, None)
+    commit_none_parent = Commit('commithash456', 'Author', 'Commit message', 1234567890, [])
     commit_none_parent_hash = hash_object(commit_none_parent)
 
     save_commit(temp_repo_dir, commit_none_parent)
@@ -30,7 +30,7 @@ def test_save_load_commit_without_parent(temp_repo_dir: Path) -> None:
     assert loaded_commit_none_parent.author == commit_none_parent.author
     assert loaded_commit_none_parent.message == commit_none_parent.message
     assert loaded_commit_none_parent.timestamp == commit_none_parent.timestamp
-    assert loaded_commit_none_parent.parent == commit_none_parent.parent
+    assert loaded_commit_none_parent.parents == commit_none_parent.parents
 
 
 def test_save_load_tree(temp_repo_dir: Path) -> None:
