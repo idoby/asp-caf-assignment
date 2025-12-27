@@ -66,7 +66,8 @@ def test_commit_with_parent(temp_repo: Repository) -> None:
     assert second_commit_ref == hash_object(second_commit)
     assert temp_repo.head_commit() == second_commit_ref
 
-    assert second_commit.parent == first_commit_ref
+    # Commit now supports multiple parents; a normal commit has exactly one parent
+    assert second_commit.parents == [str(first_commit_ref)]
 
 
 def test_save_dir(temp_repo: Repository) -> None:
