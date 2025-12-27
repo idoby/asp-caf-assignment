@@ -12,7 +12,7 @@ from typing import Concatenate
 from . import Blob, Commit, Tree, TreeRecord, TreeRecordType
 from .constants import (DEFAULT_BRANCH, DEFAULT_REPO_DIR, HASH_CHARSET, HASH_LENGTH, HEADS_DIR, HEAD_FILE,
                         OBJECTS_SUBDIR, REFS_DIR, TAGS_DIR)
-from .plumbing import hash_object, load_commit, load_tree, save_commit, save_file_content, save_tree
+from .plumbing import hash_file, hash_object, load_commit, load_tree, save_commit, save_file_content, save_tree
 from .ref import HashRef, Ref, RefError, SymRef, read_ref, write_ref
 
 
@@ -500,6 +500,66 @@ class Repository:
         except Exception as e:
             msg = f'Error loading commit {current_hash}'
             raise RepositoryError(msg) from e
+        
+    @requires_repo
+    def build_tree_from_fs(self, path: Path) -> tuple[Tree, str, dict[str, Tree]]:
+        """Build an in-memory Tree for the given filesystem directory without writing objects.
+
+        tree_lookup maps tree hashes -> Tree objects for any subtree built from the filesystem.
+        This lets diffing descend into subtrees without requiring them to exist in the DB.
+
+        Notes:
+        - Does NOT call `save_file_content`, `save_tree`, or `save_dir`.
+        - File hashes are computed using hash_file(path).
+        - Tree hashes are computed using `hash_object` on the Tree object.
+        """
+        if not path or not path.is_dir():
+            msg = f"{path} is not a directory"
+            raise NotADirectoryError(msg)
+
+        # dir -> tree_hash (so parents can refer to children)
+        dir_hashes: dict[Path, str] = {}
+        # tree_hash -> Tree (so diff recursion can "load" in-memory trees)
+        tree_lookup: dict[str, Tree] = {}
+        # dir -> Tree object (so we can return root Tree)
+        trees_by_path: dict[Path, Tree] = {}
+
+        stack = deque([path])
+
+        while stack:
+            current_path = stack.pop()
+            tree_records: dict[str, TreeRecord] = {}
+
+            for item in current_path.iterdir():
+                if item.name == self.repo_dir.name:
+                    continue
+
+                if item.is_file():
+                    blob_hash = hash_file(item)
+
+                    tree_records[item.name] = TreeRecord(TreeRecordType.BLOB, blob_hash, item.name)
+
+                elif item.is_dir():
+                    if item in dir_hashes:
+                        subtree_hash = dir_hashes[item]
+                        tree_records[item.name] = TreeRecord(TreeRecordType.TREE, subtree_hash, item.name)
+                    else:
+                        # Post-order: process child dir first, then come back
+                        stack.append(current_path)
+                        stack.append(item)
+                        break
+            else:
+                # all children done => build tree + hash
+                tree = Tree(tree_records)
+                tree_hash = hash_object(tree)
+
+                trees_by_path[current_path] = tree
+                dir_hashes[current_path] = tree_hash
+                tree_lookup[tree_hash] = tree
+
+        root_hash = dir_hashes[path]
+        root_tree = trees_by_path[path]
+        return root_tree, root_hash, tree_lookup
 
     @requires_repo
     def diff_commits(self, commit_ref1: Ref | None = None, commit_ref2: Ref | None = None) -> Sequence[Diff]:
@@ -571,27 +631,27 @@ class Repository:
         except Exception as e:
             msg = 'Error loading commit / tree'
             raise RepositoryError(msg) from e
-        
-        dir_tree_hash = self.save_dir(path)  # HashRef
 
-        
+        dir_tree, dir_tree_hash, mem_trees = self.build_tree_from_fs(path)
+
         if commit.tree_hash == dir_tree_hash:
             return []
 
-        try:
-            dir_tree = load_tree(self.objects_dir(), dir_tree_hash)
-        except Exception as e:
-            msg = 'Error loading tree'
-            raise RepositoryError(msg) from e
-        
-        return self._diff_trees(commit_tree, dir_tree)
+        # IMPORTANT: Do NOT load the directory tree from the object database.
+        # The directory tree was built in-memory and is not stored in `.caf/objects`.
+        return self._diff_trees(commit_tree, dir_tree, tree_lookup2=mem_trees)
     @requires_repo
-    
-    def _diff_trees(self, tree1: Tree | None, tree2: Tree | None) -> Sequence[Diff]:
+    def _diff_trees(self, tree1: Tree | None, tree2: Tree | None, *, tree_lookup1: dict[str, Tree] | None = None,
+                    tree_lookup2: dict[str, Tree] | None = None) -> Sequence[Diff]:
         """Generate a diff between two Tree objects.
 
         Convention: tree1 = old, tree2 = new.
         """
+        def _load_tree_any(tree_hash: str, lookup: dict[str, Tree] | None) -> Tree:
+            """Load a tree either from an in-memory lookup or from the object database."""
+            if lookup is not None and tree_hash in lookup:
+                return lookup[tree_hash]
+            return load_tree(self.objects_dir(), tree_hash)
         top_level_diff = Diff(TreeRecord(TreeRecordType.TREE, '', ''), None, [])
         stack = [(tree1, tree2, top_level_diff)]
 
@@ -640,8 +700,8 @@ class Repository:
                         subtree_diff = ModifiedDiff(record1, parent_diff, [])
 
                         try:
-                            tree1 = load_tree(self.objects_dir(), record1.hash)
-                            tree2 = load_tree(self.objects_dir(), record2.hash)
+                            tree1 = _load_tree_any(record1.hash, tree_lookup1)
+                            tree2 = _load_tree_any(record2.hash, tree_lookup2)
                         except Exception as e:
                             msg = 'Error loading subtree for diff'
                             raise RepositoryError(msg) from e
