@@ -625,44 +625,18 @@ class Repository:
 
     @requires_repo
     def diff_commits(self, commit_ref1: Ref | None = None, commit_ref2: Ref | None = None) -> Sequence[Diff]:
-        """Generate a diff between two commits in the repository.
+        """Backward-compatible wrapper: diff between two commit refs."""
+        return self.diff(commit_ref1, commit_ref2)
 
-        :param commit_ref1: The reference to the first commit. If None, defaults to the current HEAD.
-        :param commit_ref2: The reference to the second commit. If None, defaults to the current HEAD.
-        :return: A list of Diff objects representing the differences between the two commits.
-        :raises RepositoryError: If a commit or tree cannot be loaded.
-        :raises RepositoryNotFoundError: If the repository does not exist."""
-        tree1, tree_hash1, lookup1 = self._resolve_tree_spec(commit_ref1)
-        tree2, tree_hash2, lookup2 = self._resolve_tree_spec(commit_ref2)
-
-        if tree_hash1 == tree_hash2:
-            return []
-
-        return self._diff_trees(tree1, tree2, tree_lookup1=lookup1, tree_lookup2=lookup2)
-    
     @requires_repo
     def diff_commit_dir(self, commit_ref: Ref | None = None, path: Path | None = None) -> Sequence[Diff]:
-        """Generate a diff between commit and directory in the repository.
-
-        :param commit_ref1: The reference to the commit. If None, defaults to the current HEAD.
-        :param commit_ref2: The reference to the directory. If None, defaults to current working directory.
-        :return: A list of Diff objects representing the differences between the two commits.
-        :raises RepositoryError: If a commit or tree cannot be loaded.
-        :raises RepositoryNotFoundError: If the repository does not exist."""
+        """Backward-compatible wrapper: diff between a commit ref and a directory."""
         if path is None:
             path = self.working_dir
-
-        commit_tree, commit_hash, lookup1 = self._resolve_tree_spec(commit_ref)
-        dir_tree, dir_hash, lookup2 = self._resolve_tree_spec(path)
-
-        if commit_hash == dir_hash:
-            return []
-
-        return self._diff_trees(commit_tree, dir_tree, tree_lookup1=lookup1, tree_lookup2=lookup2)
-
+        return self.diff(commit_ref, path)
 
     @requires_repo
-    def diff_any(self, spec1: Ref | str | Path | None = None, spec2: Ref | str | Path | None = None) -> Sequence[Diff]:
+    def diff(self, spec1: Ref | str | Path | None = None, spec2: Ref | str | Path | None = None) -> Sequence[Diff]:
         """Diff between any two specs, where each spec can be a ref/commit-ish or a filesystem path."""
         tree1, hash1, lookup1 = self._resolve_tree_spec(spec1)
         tree2, hash2, lookup2 = self._resolve_tree_spec(spec2)
@@ -671,6 +645,7 @@ class Repository:
             return []
 
         return self._diff_trees(tree1, tree2, tree_lookup1=lookup1, tree_lookup2=lookup2)
+    
     @requires_repo
     def _diff_trees(self, tree1: Tree | None, tree2: Tree | None, *, tree_lookup1: dict[str, Tree] | None = None,
                     tree_lookup2: dict[str, Tree] | None = None) -> Sequence[Diff]:

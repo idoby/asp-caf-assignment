@@ -394,7 +394,7 @@ def test_diff_commit_dir_ignores_repo_dir(temp_repo: Repository) -> None:
     assert not any(d.record.name == 'INTERNAL.txt' for d in flat)
 
 
-def test_diff_any_ref_vs_ref_matches_diff_commits(temp_repo: Repository) -> None:
+def test_diff_ref_vs_ref_matches_diff_commits(temp_repo: Repository) -> None:
     (temp_repo.working_dir / 'a.txt').write_text('A')
     commit1 = temp_repo.commit_working_dir('Tester', 'Commit A')
 
@@ -402,13 +402,13 @@ def test_diff_any_ref_vs_ref_matches_diff_commits(temp_repo: Repository) -> None
     commit2 = temp_repo.commit_working_dir('Tester', 'Commit B')
 
     diffs_commits = temp_repo.diff_commits(commit1, commit2)
-    diffs_any = temp_repo.diff_any(commit1, commit2)
+    diffs_any = temp_repo.diff(commit1, commit2)
 
     # For this simple case, both APIs should agree on the diff structure.
     assert len(diffs_any) == len(diffs_commits)
 
 
-def test_diff_any_ref_vs_workdir_matches_diff_commit_dir(temp_repo: Repository) -> None:
+def test_diff_ref_vs_workdir_matches_diff_commit_dir(temp_repo: Repository) -> None:
     (temp_repo.working_dir / 'a.txt').write_text('A')
     commit_hash = temp_repo.commit_working_dir('Tester', 'Commit A')
 
@@ -417,7 +417,7 @@ def test_diff_any_ref_vs_workdir_matches_diff_commit_dir(temp_repo: Repository) 
     (temp_repo.working_dir / 'b.txt').write_text('B')
 
     diffs_dir = temp_repo.diff_commit_dir(commit_hash, temp_repo.working_dir)
-    diffs_any = temp_repo.diff_any(commit_hash, temp_repo.working_dir)
+    diffs_any = temp_repo.diff(commit_hash, temp_repo.working_dir)
 
     # Both should show the same high-level change types.
     added1, modified1, moved_to1, moved_from1, removed1 = split_diffs_by_type(diffs_dir)
@@ -430,7 +430,7 @@ def test_diff_any_ref_vs_workdir_matches_diff_commit_dir(temp_repo: Repository) 
     assert len(moved_from2) == len(moved_from1)
 
 
-def test_diff_any_path_vs_path_detects_changes(temp_repo: Repository) -> None:
+def test_diff_path_vs_path_detects_changes(temp_repo: Repository) -> None:
     dir1 = temp_repo.working_dir / 'dir1_any'
     dir2 = temp_repo.working_dir / 'dir2_any'
     dir1.mkdir()
@@ -446,7 +446,7 @@ def test_diff_any_path_vs_path_detects_changes(temp_repo: Repository) -> None:
     # Present only in dir2 => Added
     (dir2 / 'only2.txt').write_text('only in 2')
 
-    diffs = temp_repo.diff_any(dir1, dir2)
+    diffs = temp_repo.diff(dir1, dir2)
     added, modified, moved_to, moved_from, removed = split_diffs_by_type(diffs)
 
     assert [d.record.name for d in added] == ['only2.txt']
@@ -456,7 +456,7 @@ def test_diff_any_path_vs_path_detects_changes(temp_repo: Repository) -> None:
     assert len(moved_from) == 0
 
 
-def test_diff_any_does_not_write_objects_when_paths_used(temp_repo: Repository) -> None:
+def test_diff_does_not_write_objects_when_paths_used(temp_repo: Repository) -> None:
     # Ensure we have at least one commit (so objects dir exists)
     (temp_repo.working_dir / 'base.txt').write_text('base')
     _ = temp_repo.commit_working_dir('Tester', 'Base commit')
@@ -470,7 +470,7 @@ def test_diff_any_does_not_write_objects_when_paths_used(temp_repo: Repository) 
     (dir1 / 'a.txt').write_text('A')
     (dir2 / 'a.txt').write_text('B')
 
-    _ = temp_repo.diff_any(dir1, dir2)
+    _ = temp_repo.diff(dir1, dir2)
 
     after = snapshot_objects(temp_repo)
-    assert after == before, 'diff_any must not create new objects in .caf/objects when diffing paths'
+    assert after == before, 'diff must not create new objects in .caf/objects when diffing paths'
