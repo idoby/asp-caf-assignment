@@ -297,24 +297,16 @@ def diff(**kwargs) -> int:
     commit1 = kwargs.get('commit1')
     commit2 = kwargs.get('commit2')
 
-    if commit1 is None:
+    if not commit1 or not commit2:
         _print_error('Both commit1 and commit2 parameters are required for diff.')
         return -1
 
     try:
-        if commit2 is not None:
-            diffs = repo.diff_commits(commit1, commit2)
+        diffs = repo.diff_commits(commit1, commit2)
 
-            if not diffs:
-                _print_success('No changes detected between commits.')
-                return 0
-        else:
-            working_dir_path = Path(kwargs.get('working_dir_path', '.'))
-            diffs = repo.diff_commit_dir(commit1, working_dir_path)
-
-            if not diffs:
-                _print_success('No changes detected.')
-                return 0
+        if not diffs:
+            _print_success('No changes detected between commits.')
+            return 0
 
         _print_diffs([(diffs, 0)])
 
@@ -325,7 +317,6 @@ def diff(**kwargs) -> int:
     except RepositoryError as e:
         _print_error(f'Repository error: {e}')
         return -1
-
 
 def _repo_from_cli_kwargs(kwargs: dict[str, str]) -> Repository:
     working_dir_path = kwargs.get('working_dir_path', '.')
