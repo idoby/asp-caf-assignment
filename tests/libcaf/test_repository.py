@@ -256,7 +256,7 @@ def test_diff_commits_corrupted_commit_raises_error(temp_repo: Repository) -> No
 
     # Attempting to diff commits should raise RepositoryError due to the corrupted commit
     with raises(RepositoryError):
-        temp_repo.diff_commits(commit_ref1, commit_ref2)
+        temp_repo.diff(commit_ref1, commit_ref2)
 
 
 def test_diff_commits_corrupted_tree_raises_error(temp_repo: Repository) -> None:
@@ -280,7 +280,7 @@ def test_diff_commits_corrupted_tree_raises_error(temp_repo: Repository) -> None
 
     # Attempting to diff commits should raise RepositoryError due to the corrupted tree
     with raises(RepositoryError):
-        temp_repo.diff_commits(commit_ref1, commit_ref2)
+        temp_repo.diff(commit_ref1, commit_ref2)
 
 
 def test_diff_commits_corrupted_subtree_raises_error(temp_repo: Repository) -> None:
@@ -332,7 +332,7 @@ def test_diff_commits_corrupted_subtree_raises_error(temp_repo: Repository) -> N
 
     # Attempting to diff commits should raise RepositoryError due to the corrupted subtree
     with raises(RepositoryError):
-        temp_repo.diff_commits(commit_ref1, commit_ref2)
+        temp_repo.diff(commit_ref1, commit_ref2)
 
 
 def test_head_ref_missing_head_file_raises_error(temp_repo: Repository) -> None:

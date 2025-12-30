@@ -302,7 +302,7 @@ def diff(**kwargs) -> int:
         return -1
 
     try:
-        diffs = repo.diff_commits(commit1, commit2)
+        diffs = repo.diff(commit1, commit2)
 
         if not diffs:
             _print_success('No changes detected between commits.')

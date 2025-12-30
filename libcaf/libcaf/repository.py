@@ -503,15 +503,9 @@ class Repository:
         
     @requires_repo
     def build_tree_from_fs(self, path: Path) -> tuple[Tree, str, dict[str, Tree]]:
-        """Build an in-memory Tree for the given filesystem directory without writing objects.
+        """Build an in-memory Tree for the given filesystem directory.
 
         tree_lookup maps tree hashes -> Tree objects for any subtree built from the filesystem.
-        This lets diffing descend into subtrees without requiring them to exist in the DB.
-
-        Notes:
-        - Does NOT call `save_file_content`, `save_tree`, or `save_dir`.
-        - File hashes are computed using hash_file(path).
-        - Tree hashes are computed using `hash_object` on the Tree object.
         """
         if not path or not path.is_dir():
             msg = f"{path} is not a directory"
@@ -562,54 +556,40 @@ class Repository:
         return root_tree, root_hash, tree_lookup
 
     def _resolve_tree_spec(self, spec: Ref | str | Path | None) -> tuple[Tree, str, dict[str, Tree] | None]:
-        """Resolve a spec (ref/commit-ish or filesystem path) into a Tree.
-
-        Rules:
-        - spec is None => treat as HEAD.
-        - if spec points to an existing filesystem path (dir or file) => build an in-memory tree WITHOUT writing objects.
-        - otherwise => treat spec as a ref/commit-ish, load commit + tree from object DB.
-
-        Returns (tree, tree_hash, tree_lookup).
-        tree_lookup is only provided for filesystem-built directory trees.
+        """Resolve a spec into a Tree.
+        
+        Returns (tree, tree_hash, tree_lookup)
+        - If spec is None, defaults to HEAD
+        - If spec points to an existing filesystem directory, builds an in-memory tree
+        - Otherwise, treats spec as a ref and loads the commit's tree from the object database
         """
         if spec is None:
             spec = self.head_ref()
 
-        def _existing_path(x: str | Path) -> Path | None:
-            p = Path(x)
-            if p.exists():
-                return p
-            if not p.is_absolute():
-                p2 = self.working_dir / p
-                if p2.exists():
-                    return p2
-            return None
+        if isinstance(spec, (Path, str)):
+            path = Path(spec)
+            if not path.is_absolute():
+                path = self.working_dir / path
+        
+        path = path.resolve(strict=False)
 
-        existing: Path | None = None
-        match spec:
-            case Path() as p:
-                existing = _existing_path(p)
-            case str() as s:
-                existing = _existing_path(s)
-            case _:
-                existing = None
-
-        # Filesystem path mode
-        if existing is not None:
-            if existing.is_dir():
-                fs_tree, fs_hash, lookup = self.build_tree_from_fs(existing)
-                return fs_tree, fs_hash, lookup
-
-            if existing.is_file():
-                blob_hash = hash_file(existing)
-                tree = Tree({existing.name: TreeRecord(TreeRecordType.BLOB, blob_hash, existing.name)})
-                tree_hash = hash_object(tree)
-                return tree, tree_hash, None
-
-            msg = f'{existing} is neither a file nor a directory'
+        if path.exists():
+            if not path.is_dir():
+                msg = f'{path} is not a directory'
+                raise RepositoryError(msg)
+            
+            fs_tree, fs_hash, lookup = self.build_tree_from_fs(path)
+            return fs_tree, fs_hash, lookup
+        
+        if isinstance(spec, Path):
+            msg = f'Path does not exist: {path}'
             raise RepositoryError(msg)
-
-        # Ref/commit-ish mode
+        
+        if not isinstance(spec, (Ref, str)):
+            msg = f'Invalid spec type: {type(spec)}'
+            raise RepositoryError(msg)
+        
+        # Ref mode
         try:
             commit_hash = self.resolve_ref(spec)
             if commit_hash is None:
@@ -624,20 +604,8 @@ class Repository:
             raise RepositoryError(msg) from e
 
     @requires_repo
-    def diff_commits(self, commit_ref1: Ref | None = None, commit_ref2: Ref | None = None) -> Sequence[Diff]:
-        """Backward-compatible wrapper: diff between two commit refs."""
-        return self.diff(commit_ref1, commit_ref2)
-
-    @requires_repo
-    def diff_commit_dir(self, commit_ref: Ref | None = None, path: Path | None = None) -> Sequence[Diff]:
-        """Backward-compatible wrapper: diff between a commit ref and a directory."""
-        if path is None:
-            path = self.working_dir
-        return self.diff(commit_ref, path)
-
-    @requires_repo
     def diff(self, spec1: Ref | str | Path | None = None, spec2: Ref | str | Path | None = None) -> Sequence[Diff]:
-        """Diff between any two specs, where each spec can be a ref/commit-ish or a filesystem path."""
+        """Diff between any two specs, where each spec can be a repo ref or a filesystem directory path."""
         tree1, hash1, lookup1 = self._resolve_tree_spec(spec1)
         tree2, hash2, lookup2 = self._resolve_tree_spec(spec2)
 
@@ -650,8 +618,6 @@ class Repository:
     def _diff_trees(self, tree1: Tree | None, tree2: Tree | None, *, tree_lookup1: dict[str, Tree] | None = None,
                     tree_lookup2: dict[str, Tree] | None = None) -> Sequence[Diff]:
         """Generate a diff between two Tree objects.
-
-        Convention: tree1 = old, tree2 = new.
         """
         def _load_tree_any(tree_hash: str, lookup: dict[str, Tree] | None) -> Tree:
             """Load a tree either from an in-memory lookup or from the object database."""
