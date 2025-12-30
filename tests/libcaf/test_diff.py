@@ -387,7 +387,7 @@ def test_diff_commit_dir_ignores_repo_dir(temp_repo: Repository) -> None:
     commit_hash = temp_repo.commit_working_dir('Tester', 'Commit A')
 
     # Create internal file inside .caf
-    internal = temp_repo.repo_dir / 'INTERNAL.txt'
+    internal = temp_repo.repo_path() / 'INTERNAL.txt'
     internal.write_text('ignore me')
 
     diff_result = temp_repo.diff(commit_hash, temp_repo.working_dir)

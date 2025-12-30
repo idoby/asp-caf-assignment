@@ -434,11 +434,12 @@ class Repository:
         head_ref = self.head_ref()
         branch = head_ref if isinstance(head_ref, SymRef) else None
         parent_commit_ref = self.head_commit()
+        parents = [parent_commit_ref] if parent_commit_ref else []
 
         # Save the current working directory as a tree
         tree_hash = self.save_dir(self.working_dir)
 
-        commit = Commit(tree_hash, author, message, int(datetime.now().timestamp()), parent_commit_ref)
+        commit = Commit(tree_hash, author, message, int(datetime.now().timestamp()), parents)
         commit_ref = HashRef(hash_object(commit))
 
         save_commit(self.objects_dir(), commit)
@@ -456,19 +457,44 @@ class Repository:
         :return: A generator yielding LogEntry objects representing the commits in the log.
         :raises RepositoryError: If a commit cannot be loaded.
         :raises RepositoryNotFoundError: If the repository does not exist."""
+        import heapq
+
         tip = tip or self.head_ref()
-        current_hash = self.resolve_ref(tip)
+        start_hash = self.resolve_ref(tip)
+        
+        if not start_hash:
+            return
 
-        try:
-            while current_hash:
-                commit = load_commit(self.objects_dir(), current_hash)
-                yield LogEntry(HashRef(current_hash), commit)
+        # Priority queue for commits: (-timestamp, hash) to simulate max-heap
+        queue: list[tuple[int, str]] = []
+        visited: set[str] = set()
 
-                current_hash = HashRef(commit.parent) if commit.parent else None
-        except Exception as e:
-            msg = f'Error loading commit {current_hash}'
-            raise RepositoryError(msg) from e
+        def push_commit(commit_hash: str) -> None:
+            if commit_hash in visited:
+                return
+            
+            try:
+                c = load_commit(self.objects_dir(), commit_hash)
+                # Use negative timestamp for max-heap (newest first)
+                heapq.heappush(queue, (-c.timestamp, commit_hash))
+                visited.add(commit_hash)
+            except Exception as e:
+                msg = f'Error loading commit {commit_hash}'
+                raise RepositoryError(msg) from e
 
+        push_commit(str(start_hash))
+
+        while queue:
+            _, current_hash = heapq.heappop(queue)
+            
+            commit = load_commit(self.objects_dir(), current_hash)
+            
+            yield LogEntry(HashRef(current_hash), commit)
+
+            for parent in commit.parents:
+                push_commit(parent)
+  
+    
     def _resolve_tree_spec(self, spec: Ref | str | Path | None) -> tuple[Tree, str, dict[str, Tree] | None]:
         """Resolve a diff spec into a Tree.
 

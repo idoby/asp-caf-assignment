@@ -11,7 +11,7 @@ def test_hash_file_non_existent_file() -> None:
 
 
 def test_commit_hash() -> None:
-    commit = Commit('1234567890abcdef', 'Author', 'Initial commit', 1234567890, '3234567890abcdef')
+    commit = Commit('1234567890abcdef', 'Author', 'Initial commit', 1234567890, ['3234567890abcdef'])
     commit_hash = hash_object(commit)
 
     assert commit_hash is not None
@@ -19,7 +19,7 @@ def test_commit_hash() -> None:
 
 
 def test_commit_hash_parent_none() -> None:
-    commit = Commit('1234567890abcdef', 'Author', 'Initial commit', 1234567890, None)
+    commit = Commit('1234567890abcdef', 'Author', 'Initial commit', 1234567890, [])
     commit_hash = hash_object(commit)
 
     assert commit_hash is not None
@@ -45,15 +45,15 @@ def test_same_blob_objects_get_same_hash() -> None:
 
 
 def test_same_commit_objects_get_same_hash() -> None:
-    commit1 = Commit('1234567890abcdef', 'Author', 'Initial commit', 1234567890, 'aaabb12')
-    commit2 = Commit('1234567890abcdef', 'Author', 'Initial commit', 1234567890, 'aaabb12')
+    commit1 = Commit('1234567890abcdef', 'Author', 'Initial commit', 1234567890, ['aaabb12'])
+    commit2 = Commit('1234567890abcdef', 'Author', 'Initial commit', 1234567890, ['aaabb12'])
 
     assert hash_object(commit1) == hash_object(commit2)
 
 
 def test_same_commit_objects_get_same_hash_parent_none() -> None:
-    commit1 = Commit('1234567890abcdef', 'Author', 'Initial commit', 1234567890, None)
-    commit2 = Commit('1234567890abcdef', 'Author', 'Initial commit', 1234567890, None)
+    commit1 = Commit('1234567890abcdef', 'Author', 'Initial commit', 1234567890, [])
+    commit2 = Commit('1234567890abcdef', 'Author', 'Initial commit', 1234567890, [])
 
     assert hash_object(commit1) == hash_object(commit2)
 
@@ -87,15 +87,15 @@ def test_different_hashes_for_different_trees() -> None:
 
 
 def test_different_hashes_for_different_commits() -> None:
-    commit1 = Commit('1234567890abcdef', 'Author1', 'Initial commit', 1234567890, None)
-    commit2 = Commit('abcdef1234567890', 'Author2', 'Second commit', 1234567891, '2134567890abcdef')
+    commit1 = Commit('1234567890abcdef', 'Author1', 'Initial commit', 1234567890, [])
+    commit2 = Commit('abcdef1234567890', 'Author2', 'Second commit', 1234567891, ['2134567890abcdef'])
 
     assert hash_object(commit1) != hash_object(commit2)
 
 
 def test_different_hashes_for_different_parent_commits() -> None:
-    commit1 = Commit('1234567890abcdef', 'Author', 'Commit message', 1234567890, 'parenthash1')
-    commit2 = Commit('1234567890abcdef', 'Author', 'Commit message', 1234567890, 'parenthash2')
+    commit1 = Commit('1234567890abcdef', 'Author', 'Commit message', 1234567890, ['parenthash1'])
+    commit2 = Commit('1234567890abcdef', 'Author', 'Commit message', 1234567890, ['parenthash2'])
 
     hash1 = hash_object(commit1)
     hash2 = hash_object(commit2)
@@ -105,8 +105,8 @@ def test_different_hashes_for_different_parent_commits() -> None:
 
 def test_different_hashes_for_different_parent_commits_one_none() -> None:
     # Create two commits that differ only by the parent hash
-    commit1 = Commit('1234567890abcdef', 'Author', 'Commit message', 1234567890, 'parenthash1')
-    commit2 = Commit('1234567890abcdef', 'Author', 'Commit message', 1234567890, None)
+    commit1 = Commit('1234567890abcdef', 'Author', 'Commit message', 1234567890, ['parenthash1'])
+    commit2 = Commit('1234567890abcdef', 'Author', 'Commit message', 1234567890, [])
 
     # Compute the hash for both commits
     hash1 = hash_object(commit1)

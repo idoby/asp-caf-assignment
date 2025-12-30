@@ -16,6 +16,10 @@ std::string hash_object(const Tree& tree) {
 }
 
 std::string hash_object(const Commit& commit) {
+    std::string parents_str;
+    for (const auto& parent : commit.parents) {
+        parents_str += parent;
+    }
     return hash_string(commit.tree_hash + commit.author + commit.message +
-                       std::to_string(commit.timestamp) + commit.parent.value_or(""));
+                       std::to_string(commit.timestamp) + parents_str);
 }

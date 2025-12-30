@@ -33,12 +33,12 @@ void save_commit(const std::string &root_dir, const Commit &commit) {
         if (write(fd, &commit.timestamp, sizeof(commit.timestamp)) != sizeof(commit.timestamp))
             throw std::runtime_error("Failed to write timestamp");
 
-        if (commit.parent) {
-            write_with_length(fd, *commit.parent);
-        } else {
-            uint32_t length = 0;
-            if (write(fd, &length, sizeof(length)) != sizeof(length))
-                throw std::runtime_error("Failed to write parent");
+        uint32_t num_parents = commit.parents.size();
+        if (write(fd, &num_parents, sizeof(num_parents)) != sizeof(num_parents))
+            throw std::runtime_error("Failed to write number of parents");
+
+        for (const auto& parent : commit.parents) {
+            write_with_length(fd, parent);
         }
 
         flock(fd, LOCK_UN);
@@ -61,13 +61,19 @@ Commit load_commit(const std::string &root_dir, const std::string &commit_hash) 
     if (read(fd, &timestamp, sizeof(timestamp)) != sizeof(timestamp))
         throw std::runtime_error("Failed to read timestamp");
 
-    std::string parent_str = read_length_prefixed_string(fd);
+    uint32_t num_parents;
+    if (read(fd, &num_parents, sizeof(num_parents)) != sizeof(num_parents))
+        throw std::runtime_error("Failed to read number of parents");
+
+    std::vector<std::string> parents;
+    for (uint32_t i = 0; i < num_parents; ++i) {
+        parents.push_back(read_length_prefixed_string(fd));
+    }
 
     flock(fd, LOCK_UN);
     close(fd);
 
-    std::optional<std::string> parent = parent_str.empty() ? std::nullopt : std::make_optional(parent_str);
-    return Commit(tree_hash, author, message, timestamp, parent);
+    return Commit(tree_hash, author, message, timestamp, parents);
 }
 
 void save_tree(const std::string &root_dir, const Tree &tree) {
