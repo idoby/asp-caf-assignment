@@ -5,9 +5,10 @@ from collections import deque
 from collections.abc import Callable, Generator, Sequence
 from dataclasses import dataclass
 from datetime import datetime
-from functools import wraps
+from functools import wraps, partial
 from pathlib import Path
 from typing import Concatenate
+
 
 from . import Blob, Commit, Tree, TreeRecord, TreeRecordType
 from .constants import (DEFAULT_BRANCH, DEFAULT_REPO_DIR, HASH_CHARSET, HASH_LENGTH, HEADS_DIR, HEAD_FILE,
@@ -172,7 +173,7 @@ class Repository:
         """Resolve a reference to a HashRef, following symbolic references if necessary.
 
         :param ref: The reference to resolve. This can be a HashRef, SymRef, or a string.
-        :return: The resolved HashRef or None if the reference does not exist.
+        :return: The resolved HashRef or None if it is None
         :raises RefError: If the reference is invalid or cannot be resolved.
         :raises RepositoryNotFoundError: If the repository does not exist."""
         match ref:
@@ -184,8 +185,9 @@ class Repository:
 
                 try:
                     ref_value = read_ref(self.refs_dir() / ref)
-                except FileNotFoundError:
-                    return None
+                except FileNotFoundError as e:
+                    msg = f"Reference doesnt exist: {ref}"
+                    raise RefError(msg) from e
 
                 return self.resolve_ref(ref_value)
             case str():
@@ -479,57 +481,55 @@ class Repository:
         if spec is None:
             spec = self.head_ref()
 
-        # --- ref objects ---
-        if isinstance(spec, (HashRef, SymRef)):
-            try:
-                commit_hash = self.resolve_ref(spec)
-                if commit_hash is None:
-                    msg = f"Cannot resolve reference {spec}"
+        match spec:
+            # ref objects
+            case HashRef() | SymRef():
+                try:
+                    commit_hash = self.resolve_ref(spec)
+                    if commit_hash is None:
+                        msg = f"Cannot resolve reference {spec}"
+                        raise RepositoryError(msg)
+
+                    commit = load_commit(self.objects_dir(), commit_hash)
+                    tree = load_tree(self.objects_dir(), commit.tree_hash)
+                    return tree, commit.tree_hash, None
+                except Exception as e:
+                    msg = f"Error resolving spec {spec}"
+                    raise RepositoryError(msg) from e
+
+            case str():
+                # Strings: hash vs path vs ref
+                if len(spec) == HASH_LENGTH and all(c in HASH_CHARSET for c in spec):
+                    return self._resolve_tree_spec(HashRef(spec))
+
+                path = Path(spec).expanduser().resolve(strict=False)
+                if path.exists():
+                    if not path.is_dir():
+                        msg = f"{path} is not a directory"
+                        raise RepositoryError(msg)
+
+                    tree, tree_hash, lookup = build_tree_from_fs(path, repo_dir_name=self.repo_dir.name)
+                    return tree, tree_hash, lookup
+
+                # Otherwise treat as ref name
+                return self._resolve_tree_spec(SymRef(spec))
+
+            case Path():
+                #Path
+                path = spec.expanduser().resolve(strict=False)
+                if not path.exists():
+                    msg = f"Path does not exist: {path}"
                     raise RepositoryError(msg)
-
-                commit = load_commit(self.objects_dir(), commit_hash)
-                tree = load_tree(self.objects_dir(), commit.tree_hash)
-                return tree, commit.tree_hash, None
-            except Exception as e:
-                msg = f"Error resolving spec {spec}"
-                raise RepositoryError(msg) from e
-
-        # --- strings: hash vs path vs ref ---
-        if isinstance(spec, str):
-            # Detect commit hash FIRST (important!)
-            if len(spec) == HASH_LENGTH and all(c in HASH_CHARSET for c in spec):
-                return self._resolve_tree_spec(HashRef(spec))
-
-            path = Path(spec).expanduser().resolve(strict=False)
-            if path.exists():
                 if not path.is_dir():
                     msg = f"{path} is not a directory"
                     raise RepositoryError(msg)
 
-                tree, tree_hash, lookup = build_tree_from_fs(
-                    path,
-                    repo_dir_name=self.repo_dir.name
-                )
+                tree, tree_hash, lookup = build_tree_from_fs(path, repo_dir_name=self.repo_dir.name)
                 return tree, tree_hash, lookup
-
-            # Otherwise treat as ref name
-            return self._resolve_tree_spec(SymRef(spec))
-
-        # --- Path objects ---
-        if isinstance(spec, Path):
-            path = spec.expanduser().resolve(strict=False)
-            if not path.exists():
-                msg = f"Path does not exist: {path}"
+            
+            case _:
+                msg = f"Invalid spec type: {type(spec)}"
                 raise RepositoryError(msg)
-            if not path.is_dir():
-                msg = f"{path} is not a directory"
-                raise RepositoryError(msg)
-
-            tree, tree_hash, lookup = build_tree_from_fs(path, repo_dir_name=self.repo_dir.name)
-            return tree, tree_hash, lookup
-
-        msg = f"Invalid spec type: {type(spec)}"
-        raise RepositoryError(msg)
 
     @requires_repo
     def diff(self, spec1: Ref | str | Path | None = None, spec2: Ref | str | Path | None = None) -> Sequence[Diff]:
@@ -547,9 +547,24 @@ class Repository:
 
         if hash1 == hash2:
             return []
+        
+        def make_loader(lookup):
+            if lookup is None:
+                return partial(load_tree, self.objects_dir())
+
+            def _load_from_lookup(h: str) -> Tree:
+                try:
+                    return lookup[h]
+                except KeyError as e:
+                    raise KeyError(f"Tree hash {h} not found in lookup") from e
+
+            return _load_from_lookup
+        
+        load_tree1 = make_loader(lookup1)
+        load_tree2 = make_loader(lookup2)
 
         try: 
-            return diff_trees(tree1, tree2, objects_dir=self.objects_dir(), tree_lookup1=lookup1, tree_lookup2=lookup2)
+            return diff_trees(tree1, tree2, load_tree1=load_tree1, load_tree2=load_tree2)
         except Exception as e:
             msg = "Error diffing trees"
             raise RepositoryError(msg) from e

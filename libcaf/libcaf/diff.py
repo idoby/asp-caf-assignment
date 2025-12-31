@@ -1,5 +1,5 @@
 from collections import deque
-from collections.abc import Sequence
+from collections.abc import Sequence, Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -101,23 +101,17 @@ def build_tree_from_fs(path: Path, *, repo_dir_name: str) -> tuple[Tree, str, di
     return root_tree, root_hash, tree_lookup
 
 
-def diff_trees(tree1: Tree | None, tree2: Tree | None, *, objects_dir: Path, tree_lookup1: dict[str, Tree] | None = None,
-               tree_lookup2: dict[str, Tree] | None = None,) -> Sequence[Diff]:
+def diff_trees(tree1: Tree | None, tree2: Tree | None, *, load_tree1: Callable[[str], Tree],
+               load_tree2: Callable[[str], Tree]) -> Sequence[Diff]:
     """Generate a diff between two Tree objects.
 
     :param tree1: The first tree (old side). May be None.
     :param tree2: The second tree (new side). May be None.
-    :param objects_dir: The repository objects directory used to load missing subtrees.
-    :param tree_lookup1: Optional mapping of tree hashes to in-memory Tree objects for tree1.
-    :param tree_lookup2: Optional mapping of tree hashes to in-memory Tree objects for tree2.
+    :param load_tree1: Function used to load subtrees for tree1 by hash.
+    :param load_tree2: Function used to load subtrees for tree2 by hash.
     :return: A sequence of Diff objects representing the changes.
     :raises DiffError: If a required subtree cannot be loaded.
     """
-    def _load_tree_any(tree_hash: str, lookup: dict[str, Tree] | None) -> Tree:
-        if lookup is not None and tree_hash in lookup:
-            return lookup[tree_hash]
-        return load_tree(objects_dir, tree_hash)
-
     top_level_diff = Diff(TreeRecord(TreeRecordType.TREE, "", ""), None, [])
     stack: list[tuple[Tree | None, Tree | None, Diff]] = [(tree1, tree2, top_level_diff)]
 
@@ -157,8 +151,8 @@ def diff_trees(tree1: Tree | None, tree2: Tree | None, *, objects_dir: Path, tre
                     subtree_diff = ModifiedDiff(record1, parent_diff, [])
 
                     try:
-                        sub1 = _load_tree_any(record1.hash, tree_lookup1)
-                        sub2 = _load_tree_any(record2.hash, tree_lookup2)
+                        sub1 = load_tree1(record1.hash)
+                        sub2 = load_tree2(record2.hash)
                     except Exception as e:
                         msg = "Error loading subtree for diff"
                         raise DiffError(msg) from e
@@ -187,10 +181,4 @@ def diff_trees(tree1: Tree | None, tree2: Tree | None, *, objects_dir: Path, tre
 
                 parent_diff.children.append(local_diff)
 
-    def sort_diff_tree(diff: Diff) -> None:
-        diff.children.sort(key=lambda d: d.record.name)
-        for child in diff.children:
-            sort_diff_tree(child)
-
-    sort_diff_tree(top_level_diff)
     return top_level_diff.children
