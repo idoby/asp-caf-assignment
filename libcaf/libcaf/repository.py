@@ -13,6 +13,7 @@ from . import Blob, Commit, Tree, TreeRecord, TreeRecordType
 from .constants import (DEFAULT_BRANCH, DEFAULT_REPO_DIR, HASH_CHARSET, HASH_LENGTH, HEADS_DIR, HEAD_FILE,
                         OBJECTS_SUBDIR, REFS_DIR, TAGS_DIR)
 from .plumbing import hash_file, hash_object, load_commit, load_tree, save_commit, save_file_content, save_tree
+from .diff import(build_tree_from_fs, diff_trees, AddedDiff, Diff, ModifiedDiff, MovedFromDiff, MovedToDiff, RemovedDiff)
 from .ref import HashRef, Ref, RefError, SymRef, read_ref, write_ref
 
 
@@ -22,45 +23,6 @@ class RepositoryError(Exception):
 
 class RepositoryNotFoundError(RepositoryError):
     """Exception raised when a repository is not found."""
-
-
-@dataclass
-class Diff:
-    """A class representing a difference between two tree records."""
-
-    record: TreeRecord
-    parent: 'Diff | None'
-    children: list['Diff']
-
-
-@dataclass
-class AddedDiff(Diff):
-    """An added tree record diff as part of a commit."""
-
-
-@dataclass
-class RemovedDiff(Diff):
-    """A removed tree record diff as part of a commit."""
-
-
-@dataclass
-class ModifiedDiff(Diff):
-    """A modified tree record diff as part of a commit."""
-
-
-@dataclass
-class MovedToDiff(Diff):
-    """A tree record diff that has been moved elsewhere as part of a commit."""
-
-    moved_to: 'MovedFromDiff | None'
-
-
-@dataclass
-class MovedFromDiff(Diff):
-    """A tree record diff that has been moved from elsewhere as part of a commit."""
-
-    moved_from: MovedToDiff | None
-
 
 @dataclass
 class LogEntry:
@@ -220,8 +182,12 @@ class Repository:
                 if ref.upper() == 'HEAD':
                     return self.resolve_ref(self.head_ref())
 
-                ref = read_ref(self.refs_dir() / ref)
-                return self.resolve_ref(ref)
+                try:
+                    ref_value = read_ref(self.refs_dir() / ref)
+                except FileNotFoundError:
+                    return None
+
+                return self.resolve_ref(ref_value)
             case str():
                 # Try to figure out what kind of ref it is by looking at the list of refs
                 # in the refs directory
@@ -500,224 +466,95 @@ class Repository:
         except Exception as e:
             msg = f'Error loading commit {current_hash}'
             raise RepositoryError(msg) from e
-        
-    @requires_repo
-    def build_tree_from_fs(self, path: Path) -> tuple[Tree, str, dict[str, Tree]]:
-        """Build an in-memory Tree for the given filesystem directory.
-
-        tree_lookup maps tree hashes -> Tree objects for any subtree built from the filesystem.
-        """
-        if not path or not path.is_dir():
-            msg = f"{path} is not a directory"
-            raise NotADirectoryError(msg)
-
-        # dir -> tree_hash (so parents can refer to children)
-        dir_hashes: dict[Path, str] = {}
-        # tree_hash -> Tree (so diff recursion can "load" in-memory trees)
-        tree_lookup: dict[str, Tree] = {}
-        # dir -> Tree object (so we can return root Tree)
-        trees_by_path: dict[Path, Tree] = {}
-
-        stack = deque([path])
-
-        while stack:
-            current_path = stack.pop()
-            tree_records: dict[str, TreeRecord] = {}
-
-            for item in current_path.iterdir():
-                if item.name == self.repo_dir.name:
-                    continue
-
-                if item.is_file():
-                    blob_hash = hash_file(item)
-
-                    tree_records[item.name] = TreeRecord(TreeRecordType.BLOB, blob_hash, item.name)
-
-                elif item.is_dir():
-                    if item in dir_hashes:
-                        subtree_hash = dir_hashes[item]
-                        tree_records[item.name] = TreeRecord(TreeRecordType.TREE, subtree_hash, item.name)
-                    else:
-                        # Post-order: process child dir first, then come back
-                        stack.append(current_path)
-                        stack.append(item)
-                        break
-            else:
-                # all children done => build tree + hash
-                tree = Tree(tree_records)
-                tree_hash = hash_object(tree)
-
-                trees_by_path[current_path] = tree
-                dir_hashes[current_path] = tree_hash
-                tree_lookup[tree_hash] = tree
-
-        root_hash = dir_hashes[path]
-        root_tree = trees_by_path[path]
-        return root_tree, root_hash, tree_lookup
 
     def _resolve_tree_spec(self, spec: Ref | str | Path | None) -> tuple[Tree, str, dict[str, Tree] | None]:
-        """Resolve a spec into a Tree.
-        
-        Returns (tree, tree_hash, tree_lookup)
-        - If spec is None, defaults to HEAD
-        - If spec points to an existing filesystem directory, builds an in-memory tree
-        - Otherwise, treats spec as a ref and loads the commit's tree from the object database
+        """Resolve a diff spec into a Tree.
+
+        :param spec: A repository reference, commit hash, filesystem path, or None.
+            If None, defaults to HEAD.
+        :return: A tuple of (tree, tree_hash, tree_lookup).
+            tree_lookup is only provided for filesystem-built directory trees.
+        :raises RepositoryError: If the spec cannot be resolved.
         """
         if spec is None:
             spec = self.head_ref()
 
-        if isinstance(spec, (Path, str)):
-            path = Path(spec)
-            if not path.is_absolute():
-                path = self.working_dir / path
-        
-        path = path.resolve(strict=False)
+        # --- ref objects ---
+        if isinstance(spec, (HashRef, SymRef)):
+            try:
+                commit_hash = self.resolve_ref(spec)
+                if commit_hash is None:
+                    msg = f"Cannot resolve reference {spec}"
+                    raise RepositoryError(msg)
 
-        if path.exists():
-            if not path.is_dir():
-                msg = f'{path} is not a directory'
-                raise RepositoryError(msg)
-            
-            fs_tree, fs_hash, lookup = self.build_tree_from_fs(path)
-            return fs_tree, fs_hash, lookup
-        
+                commit = load_commit(self.objects_dir(), commit_hash)
+                tree = load_tree(self.objects_dir(), commit.tree_hash)
+                return tree, commit.tree_hash, None
+            except Exception as e:
+                msg = f"Error resolving spec {spec}"
+                raise RepositoryError(msg) from e
+
+        # --- strings: hash vs path vs ref ---
+        if isinstance(spec, str):
+            # Detect commit hash FIRST (important!)
+            if len(spec) == HASH_LENGTH and all(c in HASH_CHARSET for c in spec):
+                return self._resolve_tree_spec(HashRef(spec))
+
+            path = Path(spec).expanduser().resolve(strict=False)
+            if path.exists():
+                if not path.is_dir():
+                    msg = f"{path} is not a directory"
+                    raise RepositoryError(msg)
+
+                tree, tree_hash, lookup = build_tree_from_fs(
+                    path,
+                    repo_dir_name=self.repo_dir.name
+                )
+                return tree, tree_hash, lookup
+
+            # Otherwise treat as ref name
+            return self._resolve_tree_spec(SymRef(spec))
+
+        # --- Path objects ---
         if isinstance(spec, Path):
-            msg = f'Path does not exist: {path}'
-            raise RepositoryError(msg)
-        
-        if not isinstance(spec, (Ref, str)):
-            msg = f'Invalid spec type: {type(spec)}'
-            raise RepositoryError(msg)
-        
-        # Ref mode
-        try:
-            commit_hash = self.resolve_ref(spec)
-            if commit_hash is None:
-                msg = f'Cannot resolve reference {spec}'
-                raise RefError(msg)
+            path = spec.expanduser().resolve(strict=False)
+            if not path.exists():
+                msg = f"Path does not exist: {path}"
+                raise RepositoryError(msg)
+            if not path.is_dir():
+                msg = f"{path} is not a directory"
+                raise RepositoryError(msg)
 
-            commit = load_commit(self.objects_dir(), commit_hash)
-            tree = load_tree(self.objects_dir(), commit.tree_hash)
-            return tree, commit.tree_hash, None
-        except Exception as e:
-            msg = 'Error loading commit / tree'
-            raise RepositoryError(msg) from e
+            tree, tree_hash, lookup = build_tree_from_fs(path, repo_dir_name=self.repo_dir.name)
+            return tree, tree_hash, lookup
+
+        msg = f"Invalid spec type: {type(spec)}"
+        raise RepositoryError(msg)
 
     @requires_repo
     def diff(self, spec1: Ref | str | Path | None = None, spec2: Ref | str | Path | None = None) -> Sequence[Diff]:
-        """Diff between any two specs, where each spec can be a repo ref or a filesystem directory path."""
+        """Generate a diff between any two specs.
+
+        Each spec may be a repository reference (e.g. HEAD, branch, tag, commit hash) or a
+        filesystem directory path.
+
+        :param spec1: The left-hand spec to diff from. If None, defaults to HEAD.
+        :param spec2: The right-hand spec to diff to. If None, defaults to HEAD.
+        :return: A sequence of Diff objects representing the changes.
+        :raises RepositoryError: If either spec cannot be resolved or objects cannot be loaded."""
         tree1, hash1, lookup1 = self._resolve_tree_spec(spec1)
         tree2, hash2, lookup2 = self._resolve_tree_spec(spec2)
 
         if hash1 == hash2:
             return []
 
-        return self._diff_trees(tree1, tree2, tree_lookup1=lookup1, tree_lookup2=lookup2)
+        try: 
+            return diff_trees(tree1, tree2, objects_dir=self.objects_dir(), tree_lookup1=lookup1, tree_lookup2=lookup2)
+        except Exception as e:
+            msg = "Error diffing trees"
+            raise RepositoryError(msg) from e
     
-    @requires_repo
-    def _diff_trees(self, tree1: Tree | None, tree2: Tree | None, *, tree_lookup1: dict[str, Tree] | None = None,
-                    tree_lookup2: dict[str, Tree] | None = None) -> Sequence[Diff]:
-        """Generate a diff between two Tree objects.
-        """
-        def _load_tree_any(tree_hash: str, lookup: dict[str, Tree] | None) -> Tree:
-            """Load a tree either from an in-memory lookup or from the object database."""
-            if lookup is not None and tree_hash in lookup:
-                return lookup[tree_hash]
-            return load_tree(self.objects_dir(), tree_hash)
-        top_level_diff = Diff(TreeRecord(TreeRecordType.TREE, '', ''), None, [])
-        stack = [(tree1, tree2, top_level_diff)]
-
-        potentially_added: dict[str, Diff] = {}
-        potentially_removed: dict[str, Diff] = {}
-
-        while stack:
-            current_tree1, current_tree2, parent_diff = stack.pop()
-            records1 = current_tree1.records if current_tree1 else {}
-            records2 = current_tree2.records if current_tree2 else {}
-
-            for name, record1 in records1.items():
-                if name not in records2:
-                    local_diff: Diff
-
-                    # This name is no longer in the tree, so it was either moved or removed
-                    # Have we seen this hash before as a potentially-added record?
-                    if record1.hash in potentially_added:
-                        added_diff = potentially_added[record1.hash]
-                        del potentially_added[record1.hash]
-
-                        local_diff = MovedToDiff(record1, parent_diff, [], None)
-                        moved_from_diff = MovedFromDiff(added_diff.record, added_diff.parent, [], local_diff)
-                        local_diff.moved_to = moved_from_diff
-
-                        # Replace the original added diff with a moved-from diff
-                        added_diff.parent.children = (
-                            [_ if _.record.hash != record1.hash
-                             else moved_from_diff
-                             for _ in added_diff.parent.children])
-
-                    else:
-                        local_diff = RemovedDiff(record1, parent_diff, [])
-                        potentially_removed[record1.hash] = local_diff
-
-                    parent_diff.children.append(local_diff)
-                else:
-                    record2 = records2[name]
-
-                    # This record is identical in both trees, so no diff is needed
-                    if record1.hash == record2.hash:
-                        continue
-
-                    # If the record is a tree, we need to recursively compare the trees
-                    if record1.type == TreeRecordType.TREE and record2.type == TreeRecordType.TREE:
-                        subtree_diff = ModifiedDiff(record1, parent_diff, [])
-
-                        try:
-                            tree1 = _load_tree_any(record1.hash, tree_lookup1)
-                            tree2 = _load_tree_any(record2.hash, tree_lookup2)
-                        except Exception as e:
-                            msg = 'Error loading subtree for diff'
-                            raise RepositoryError(msg) from e
-
-                        stack.append((tree1, tree2, subtree_diff))
-                        parent_diff.children.append(subtree_diff)
-                    else:
-                        modified_diff = ModifiedDiff(record1, parent_diff, [])
-                        parent_diff.children.append(modified_diff)
-
-            for name, record2 in records2.items():
-                if name not in records1:
-                    # This name is in the new tree but not in the old tree, so it was either
-                    # added or moved
-                    # If we've already seen this hash, it was moved, so convert the original
-                    # added diff to a moved diff
-                    if record2.hash in potentially_removed:
-                        removed_diff = potentially_removed[record2.hash]
-                        del potentially_removed[record2.hash]
-
-                        local_diff = MovedFromDiff(record2, parent_diff, [], None)
-                        moved_to_diff = MovedToDiff(removed_diff.record, removed_diff.parent, [], local_diff)
-                        local_diff.moved_from = moved_to_diff
-
-                        # Create a new diff for the moved record
-                        removed_diff.parent.children = (
-                            [_ if _.record.hash != record2.hash
-                             else moved_to_diff
-                             for _ in removed_diff.parent.children])
-
-                    else:
-                        local_diff = AddedDiff(record2, parent_diff, [])
-                        potentially_added[record2.hash] = local_diff
-
-                    parent_diff.children.append(local_diff)
-
-        def sort_diff_tree(diff: Diff) -> None:
-            diff.children.sort(key=lambda d: d.record.name)
-            for child in diff.children:
-                sort_diff_tree(child)
-
-        sort_diff_tree(top_level_diff)
-        return top_level_diff.children
-
+    
     def head_file(self) -> Path:
         """Get the path to the HEAD file within the repository.
 

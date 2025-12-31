@@ -1,7 +1,9 @@
 from collections.abc import Sequence
 from pathlib import Path
 
-from libcaf.repository import (AddedDiff, Diff, ModifiedDiff, MovedFromDiff, MovedToDiff, RemovedDiff, Repository)
+from libcaf.repository import (Repository)
+from libcaf.diff import (AddedDiff, Diff, ModifiedDiff, MovedFromDiff, MovedToDiff, RemovedDiff)
+
 
 def snapshot_objects(temp_repo: Repository) -> set[str]:
     objects_dir = temp_repo.objects_dir()

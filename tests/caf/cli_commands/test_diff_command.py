@@ -3,6 +3,7 @@ from pathlib import Path
 
 from libcaf.constants import DEFAULT_REPO_DIR, HEAD_FILE
 from libcaf.repository import Repository
+from libcaf.diff import AddedDiff, Diff, ModifiedDiff, MovedFromDiff, MovedToDiff, RemovedDiff
 from pytest import CaptureFixture
 
 from caf import cli_commands
