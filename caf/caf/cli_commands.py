@@ -9,7 +9,7 @@ from libcaf.constants import DEFAULT_BRANCH
 from libcaf.plumbing import hash_file as plumbing_hash_file
 from libcaf.ref import SymRef
 from libcaf.repository import (Repository, RepositoryError, RepositoryNotFoundError)
-from libcaf.diff import (AddedDiff, Diff, ModifiedDiff, MovedToDiff, RemovedDiff)
+from libcaf.diff import (AddedDiff, Diff, ModifiedDiff, MovedFromDiff, MovedToDiff, RemovedDiff)
 
 
 
@@ -342,6 +342,9 @@ def _print_diffs(diff_stack: MutableSequence[tuple[Sequence[Diff], int]]) -> Non
                 case MovedToDiff(record, _, _, moved_to):
                     assert moved_to is not None, 'MovedToDiff must have a moved_to record, this is a bug!'
                     print(f'Moved: {record.name} -> {moved_to.record.name}')
+                case MovedFromDiff(record, _, _, moved_from):
+                    assert moved_from is not None, 'MovedFromDiff must have a moved_from record, this is a bug!'
+                    print(f'Moved: {moved_from.record.name} -> {record.name}')
                 case RemovedDiff(record, _, _):
                     print(f'Removed: {record.name}')
                 case _:
@@ -349,3 +352,28 @@ def _print_diffs(diff_stack: MutableSequence[tuple[Sequence[Diff], int]]) -> Non
 
             if diff.children:
                 diff_stack.append((diff.children, indent + 3))
+    
+def status(**kwargs) -> int:
+    repo = _repo_from_cli_kwargs(kwargs)
+
+    try:
+        difference = repo.status()
+        
+        if difference is None:
+            _print_success('No HEAD commit yet (no commits in repository).')
+            return 0
+
+        if not difference:
+            _print_success('Working directory clean.')
+            return 0
+
+        _print_diffs([(difference, 0)])
+        return 0
+    
+    except RepositoryNotFoundError:
+        _print_error(f'No repository found at {repo.repo_path()}')
+        return -1
+    except RepositoryError as e:
+        _print_error(f'Repository error: {e}')
+        return -1
+        
