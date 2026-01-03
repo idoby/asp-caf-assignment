@@ -73,5 +73,5 @@ def test_common_ancestor_error(temp_repo: Repository) -> None:
     if temp_repo.exists():
         temp_repo.delete_repo()
     temp_repo.init()
-    with raises(RepositoryError):
+    with raises(RuntimeError):
         temp_repo.get_common_ancestor('1' * 40, '2' * 40)

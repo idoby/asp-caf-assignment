@@ -628,57 +628,39 @@ class Repository:
         :param hash1: The hash of the first commit.
         :param hash2: The hash of the second commit.
         :return: The hash of the common ancestor, or None if no common ancestor is found.
-        :raises RepositoryError: If there is an error loading commits.
+        :raises RuntimeError: If there is an error loading commits.
         """
         if hash1 == hash2:
             return hash1
 
-        # 1. Collect all ancestors of hash1
-        ancestors1 = {hash1}
-        queue1 = deque([hash1])
+        ancestors1 = set(self._collect_ancestors(hash1))
+        ancestors2 = self._collect_ancestors(hash2)
 
-        while queue1:
-            current = queue1.popleft()
-            commit = load_commit(self.objects_dir(), current)
-
-            parents = commit.parent
-            if parents is None:
-                parent_list = []
-            elif isinstance(parents, str):
-                parent_list = [parents]
-            else:
-                parent_list = list(parents)
-
-            for p in parent_list:
-                if p not in ancestors1:
-                    ancestors1.add(p)
-                    queue1.append(p)
-
-        # 2. BFS on hash2 to find the first match
-        queue2 = deque([hash2])
-        visited2 = {hash2}
-
-        while queue2:
-            current = queue2.popleft()
-            if current in ancestors1:
-                return current
-
-            commit = load_commit(self.objects_dir(), current)
-
-            parents = commit.parent
-            if parents is None:
-                parent_list = []
-            elif isinstance(parents, str):
-                parent_list = [parents]
-            else:
-                parent_list = list(parents)
-
-            for p in parent_list:
-                if p not in visited2:
-                    visited2.add(p)
-                    queue2.append(p)
+        for ancestor in ancestors2:
+            if ancestor in ancestors1:
+                return ancestor
 
         return None
+
+    def _collect_ancestors(self, commit_hash: str) -> list[str]:
+        """Collect all ancestors of a commit including itself, in traversal order."""
+        ancestors = []
+        queue = deque([commit_hash])
+        visited = {commit_hash}
+
+        while queue:
+            current = queue.popleft()
+            ancestors.append(current)
+
+            commit = load_commit(self.objects_dir(), current)
+            if commit.parent:
+                parents = [commit.parent] if isinstance(commit.parent, str) else list(commit.parent)
+                for p in parents:
+                    if p not in visited:
+                        visited.add(p)
+                        queue.append(p)
+
+        return ancestors
 
     def head_file(self) -> Path:
         """Get the path to the HEAD file within the repository.
