@@ -342,9 +342,6 @@ def _print_diffs(diff_stack: MutableSequence[tuple[Sequence[Diff], int]]) -> Non
                 case MovedToDiff(record, _, _, moved_to):
                     assert moved_to is not None, 'MovedToDiff must have a moved_to record, this is a bug!'
                     print(f'Moved: {record.name} -> {moved_to.record.name}')
-                case MovedFromDiff(record, _, _, moved_from):
-                    assert moved_from is not None, 'MovedFromDiff must have a moved_from record, this is a bug!'
-                    print(f'Moved: {moved_from.record.name} -> {record.name}')
                 case RemovedDiff(record, _, _):
                     print(f'Removed: {record.name}')
                 case _:
@@ -363,7 +360,7 @@ def status(**kwargs) -> int:
             _print_success('No HEAD commit yet (no commits in repository).')
             return 0
 
-        if not difference:
+        if len(difference) == 0:
             _print_success('Working directory clean.')
             return 0
 
