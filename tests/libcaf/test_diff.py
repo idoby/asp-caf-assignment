@@ -3,41 +3,7 @@ from pathlib import Path
 
 from libcaf.repository import (Repository)
 from libcaf.diff import (AddedDiff, Diff, ModifiedDiff, MovedFromDiff, MovedToDiff, RemovedDiff)
-
-
-def snapshot_objects(temp_repo: Repository) -> set[str]:
-    objects_dir = temp_repo.objects_dir()
-    if not objects_dir.exists():
-        return set()
-    return {p.name for p in objects_dir.iterdir() if p.is_file()}
-
-
-def flatten_diffs(diffs: Sequence[Diff]) -> list[Diff]:
-    out: list[Diff] = []
-
-    def walk(d: Diff) -> None:
-        out.append(d)
-        for c in d.children:
-            walk(c)
-
-    for d in diffs:
-        walk(d)
-    return out
-
-def split_diffs_by_type(diffs: Sequence[Diff]) -> \
-        tuple[list[AddedDiff],
-        list[ModifiedDiff],
-        list[MovedToDiff],
-        list[MovedFromDiff],
-        list[RemovedDiff]]:
-    added = [d for d in diffs if isinstance(d, AddedDiff)]
-    moved_to = [d for d in diffs if isinstance(d, MovedToDiff)]
-    moved_from = [d for d in diffs if isinstance(d, MovedFromDiff)]
-    removed = [d for d in diffs if isinstance(d, RemovedDiff)]
-    modified = [d for d in diffs if isinstance(d, ModifiedDiff)]
-
-    return added, modified, moved_to, moved_from, removed
-
+from diff_test_utils import split_diffs_by_type, flatten_diffs
 
 def test_diff_head(temp_repo: Repository) -> None:
     file_path = temp_repo.working_dir / 'file.txt'
