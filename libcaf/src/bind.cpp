@@ -3,6 +3,7 @@
 #include "caf.h"
 #include "hash_types.h"
 #include "object_io.h" 
+#include "like.h"
 
 
 using namespace std;
@@ -22,12 +23,16 @@ PYBIND11_MODULE(_libcaf, m) {
     m.def("hash_object", py::overload_cast<const Blob&>(&hash_object), py::arg("blob"));
     m.def("hash_object", py::overload_cast<const Tree&>(&hash_object), py::arg("tree"));
     m.def("hash_object", py::overload_cast<const Commit&>(&hash_object), py::arg("commit"));
+    m.def("hash_object", py::overload_cast<const Like&>(&hash_object), py::arg("like"));
+
 
     // object_io
     m.def("save_commit", &save_commit);
     m.def("load_commit", &load_commit);
     m.def("save_tree", &save_tree);
     m.def("load_tree", &load_tree);
+    m.def("save_like", &save_like);
+    m.def("load_like", &load_like); 
 
     py::class_<Blob>(m, "Blob")
     .def(py::init<std::string>())
@@ -59,4 +64,11 @@ PYBIND11_MODULE(_libcaf, m) {
         .def_readonly("message", &Commit::message)
         .def_readonly("timestamp", &Commit::timestamp)
         .def_readonly("parent", &Commit::parent);
+    
+    py::class_<Like>(m,"Like")
+    .def(py::init<const string &, const string&, time_t>())
+        .def_readonly("commit_hash", &Like::commit_hash)
+        .def_readonly("user", &Like::user)
+        .def_readonly("timestamp", &Like::timestamp);
+
 }

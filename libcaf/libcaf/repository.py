@@ -73,6 +73,10 @@ class LogEntry:
     commit: Commit
 
 
+
+    
+
+
 class Repository:
     """Represents a libcaf repository.
 
@@ -105,6 +109,7 @@ class Repository:
         self.add_branch(default_branch)
 
         write_ref(self.head_file(), branch_ref(default_branch))
+
 
     def exists(self) -> bool:
         """Check if the repository exists in the working directory.

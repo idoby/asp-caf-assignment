@@ -20,6 +20,8 @@ void write_with_length(int fd, const std::string &data); // Helper function to w
 void save_tree_record(int fd, const TreeRecord &record); // Helper function to serialize a TreeRecord
 TreeRecord load_tree_record(int fd); // Helper function to deserialize a TreeRecord
 
+
+
 // Serialize Commit to disk
 void save_commit(const std::string &root_dir, const Commit &commit) {
     std::string commit_hash = hash_object(commit);
@@ -157,4 +159,46 @@ TreeRecord load_tree_record(int fd) {
     std::string name = read_length_prefixed_string(fd);
 
     return TreeRecord(record_type, hash, name);
+}
+
+
+void save_like(const std::string &root_dir, const Like &like){
+    std::string like_hash = hash_object(like);
+
+    int fd = open_content_for_writing(root_dir, like_hash);
+
+    try{
+        write_with_length(fd, like.commit_hash);
+        write_with_length(fd, like.user);
+
+        
+        if (write(fd, &like.timestamp, sizeof(like.timestamp)) != sizeof(like.timestamp))
+            throw std::runtime_error("Failed to write timestamp");
+        
+        flock(fd, LOCK_UN);
+        close(fd);
+    } 
+    catch (const std::exception &e) {
+        delete_content(root_dir, like_hash);
+        throw;
+    }
+
+}
+
+
+
+Like load_like(const std::string &root_dir, const std::string &like_hash) {
+    int fd = open_content_for_reading(root_dir, like_hash);
+
+    std::string commit_hash = read_length_prefixed_string(fd);
+    std::string user = read_length_prefixed_string(fd);
+
+    uint64_t timestamp;
+    if (read(fd, &timestamp, sizeof(timestamp)) != sizeof(timestamp))
+        throw std::runtime_error("Failed to read timestamp");
+
+    flock(fd, LOCK_UN);
+    close(fd);
+
+    return Like(commit_hash, user,timestamp);
 }
