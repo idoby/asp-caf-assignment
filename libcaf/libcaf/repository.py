@@ -9,11 +9,11 @@ from functools import wraps
 from pathlib import Path
 from typing import Concatenate
 
-from . import Blob, Commit, Tree, TreeRecord, TreeRecordType
+from . import Blob, Commit, Tree, TreeRecord, TreeRecordType, Like
 from .constants import (DEFAULT_BRANCH, DEFAULT_REPO_DIR, HASH_CHARSET, HASH_LENGTH, HEADS_DIR, HEAD_FILE,
                         OBJECTS_SUBDIR, REFS_DIR, TAGS_DIR)
-from .plumbing import hash_object, load_commit, load_tree, save_commit, save_file_content, save_tree
-from .ref import HashRef, Ref, RefError, SymRef, read_ref, write_ref
+from .plumbing import hash_object, load_commit, load_tree, save_commit, save_file_content, save_tree, save_like, load_like, delete_content
+from .ref import HashRef, Ref, RefError, SymRef, read_ref, write_ref, HashRef
 
 
 class RepositoryError(Exception):
@@ -109,6 +109,8 @@ class Repository:
         self.add_branch(default_branch)
 
         write_ref(self.head_file(), branch_ref(default_branch))
+
+        self._users: dict[str, list[HashRef]] = {}
 
 
     def exists(self) -> bool:
@@ -669,6 +671,97 @@ class Repository:
                 tag_names.append(tag.name)
         
         return tag_names
+
+    @requires_repo
+    def create_like(self, commit_ref: HashRef | str, user: str) -> HashRef:
+        if user not in self._users:
+            raise RepositoryError(f"User '{user}' is not registered")
+
+        resolved = self.resolve_ref(commit_ref)
+        if resolved is None:
+            raise RepositoryError("Invalid commit reference")
+
+        commit_hash = str(resolved)
+
+        if commit_hash in self._users[user]:
+            raise RepositoryError(
+                f"User '{user}' already liked commit '{commit_hash}'"
+            )
+
+        like = Like(commit_hash, user, int(datetime.now().timestamp()))
+        like_hash = self.save_like(like)
+
+        self._users[user].add(commit_hash)
+
+        return like_hash
+
+
+    
+    @requires_repo
+    def delete_like(self, commit_ref: HashRef | str, user: str) -> None:
+        if user not in self._users:
+            raise RepositoryError(f"User '{user}' is not registered")
+
+        resolved = self.resolve_ref(commit_ref)
+        if resolved is None:
+            raise RepositoryError("Invalid commit reference")
+
+        commit_hash = str(resolved)
+
+        if commit_hash not in self._users[user]:
+            raise RepositoryError(
+                f"User '{user}' has no like on commit '{commit_hash}'"
+            )
+
+        self._users[user].remove(commit_hash)
+
+        delete_content(self.objects_dir(), like_hash)
+    
+    
+    @requires_repo
+    def likes_by_user(self, user: str) -> list[HashRef]:
+        if user not in self._users:
+            raise RepositoryError(f"User '{user}' is not registered")
+
+        return list(self._users[user].keys())
+    
+    @requires_repo
+    def users_for_commit(self, commit_ref: HashRef | str) -> list[str]:
+        resolved = self.resolve_ref(commit_ref)
+        if resolved is None:
+            raise RepositoryError("Invalid commit reference")
+
+        commit_hash = str(resolved)
+        result: list[str] = []
+
+        for user, commits in self._users.items():
+            if commit_hash in commits:
+                result.append(user)
+
+        return result
+
+
+    @requires_repo
+    def add_user(self, user: str) -> None:
+        if not user:
+            raise ValueError("User name is required")
+        if user in self._users:
+            raise RepositoryError(f"User '{user}' already exists")
+        self._users[user] = set()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
