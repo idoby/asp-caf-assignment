@@ -568,8 +568,43 @@ class Repository:
         except Exception as e:
             msg = "Error diffing trees"
             raise RepositoryError(msg) from e
-    
-    
+        
+    @requires_repo
+    def status(self) -> Sequence[Diff]:
+        """Show the working tree status.
+
+        :return: A sequence of Diff objects representing the changes.
+        :raises RepositoryError: If there is an error calculating the status.
+        """
+        try:
+            head_commit = None
+            try:
+                head_commit = self.head_commit()
+            except (RefError, RepositoryError):
+                pass # Since the None case is handled later on
+            
+            if head_commit is None:
+                work_tree, _, lookup = build_tree_from_fs(self.working_dir, repo_dir_name=self.repo_dir.name)
+                
+                def _load_unused(_: str) -> Tree:
+                            msg = "No HEAD tree exists (no commits yet)"
+                            raise KeyError(msg)
+
+                def _load_from_lookup(h: str) -> Tree:
+                    try:
+                        return lookup[h]
+                    except KeyError as e:
+                        raise KeyError(f"Tree hash {h} not found in lookup") from e
+                
+                return diff_trees(None, work_tree, load_tree1=_load_unused, load_tree2=_load_from_lookup)
+            
+            return self.diff(self.head_ref(), self.working_dir)
+        
+        except Exception as e:
+            msg = "Error generating status"
+            raise RepositoryError(msg) from e
+
+
     def head_file(self) -> Path:
         """Get the path to the HEAD file within the repository.
 
