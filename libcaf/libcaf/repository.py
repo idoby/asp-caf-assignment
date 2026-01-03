@@ -172,6 +172,14 @@ class Repository:
         return read_ref(head_file)
 
     @requires_repo
+    def update_head(self, new_ref: Ref) -> None:
+        """Update the HEAD reference of the repository.
+
+        :param new_ref: The new reference value to set.
+        :raises RepositoryNotFoundError: If the repository does not exist."""
+        write_ref(self.head_file(), new_ref)
+
+    @requires_repo
     def head_commit(self) -> HashRef | None:
         """Return a ref to the current commit reference of the HEAD.
 
@@ -633,34 +641,17 @@ class Repository:
         if hash1 == hash2:
             return hash1
 
-        ancestors1 = set(self._collect_ancestors(hash1))
-        ancestors2 = self._collect_ancestors(hash2)
+        ancestors1 = set(_collect_ancestors(self.objects_dir(), hash1))
 
-        for ancestor in ancestors2:
-            if ancestor in ancestors1:
-                return ancestor
+        # Walk ancestors of hash2 and return the first match
+        current = hash2
+        while current:
+            if current in ancestors1:
+                return current
+            commit = load_commit(self.objects_dir(), current)
+            current = commit.parent
 
         return None
-
-    def _collect_ancestors(self, commit_hash: str) -> list[str]:
-        """Collect all ancestors of a commit including itself, in traversal order."""
-        ancestors = []
-        queue = deque([commit_hash])
-        visited = {commit_hash}
-
-        while queue:
-            current = queue.popleft()
-            ancestors.append(current)
-
-            commit = load_commit(self.objects_dir(), current)
-            if commit.parent:
-                parents = [commit.parent] if isinstance(commit.parent, str) else list(commit.parent)
-                for p in parents:
-                    if p not in visited:
-                        visited.add(p)
-                        queue.append(p)
-
-        return ancestors
 
     def head_file(self) -> Path:
         """Get the path to the HEAD file within the repository.
@@ -675,3 +666,19 @@ def branch_ref(branch: str) -> SymRef:
     :param branch: The name of the branch.
     :return: A SymRef object representing the branch reference."""
     return SymRef(f'{HEADS_DIR}/{branch}')
+
+
+def _collect_ancestors(objects_dir: Path, commit_hash: str) -> list[str]:
+    """Collect all ancestors of a commit including itself.
+
+    :param objects_dir: Path to the objects directory.
+    :param commit_hash: The hash of the commit to start from.
+    :return: A list of ancestor hashes.
+    """
+    ancestors = []
+    current = commit_hash
+    while current:
+        ancestors.append(current)
+        commit = load_commit(objects_dir, current)
+        current = commit.parent
+    return ancestors

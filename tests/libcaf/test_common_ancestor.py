@@ -1,16 +1,13 @@
-from datetime import datetime
-from libcaf.repository import Repository, RepositoryError
-from libcaf.plumbing import save_commit, save_tree, load_commit
-from libcaf.ref import write_ref
-from pytest import raises
 from pathlib import Path
+
+from pytest import raises
+
+from libcaf.ref import HashRef
+from libcaf.repository import Repository, RepositoryError
 
 
 
 def test_common_ancestor_same_commit(temp_repo: Repository) -> None:
-    # if temp_repo.exists():
-    #     temp_repo.delete_repo()
-    # temp_repo.init()
     temp_file = temp_repo.working_dir / 'file.txt'
     temp_file.write_text('content')
     c1 = temp_repo.commit_working_dir('Author', 'Commit 1')
@@ -18,9 +15,6 @@ def test_common_ancestor_same_commit(temp_repo: Repository) -> None:
     assert temp_repo.get_common_ancestor(c1, c1) == c1
 
 def test_common_ancestor_parent_child(temp_repo: Repository) -> None:
-    # if temp_repo.exists():
-    #     temp_repo.delete_repo()
-    # temp_repo.init()
     temp_file = temp_repo.working_dir / 'file.txt'
     
     temp_file.write_text('v1')
@@ -33,9 +27,6 @@ def test_common_ancestor_parent_child(temp_repo: Repository) -> None:
     assert temp_repo.get_common_ancestor(c2, c1) == c1
 
 def test_common_ancestor_diverged(temp_repo: Repository) -> None:
-    # if temp_repo.exists():
-    #     temp_repo.delete_repo()
-    # temp_repo.init()
     temp_file = temp_repo.working_dir / 'file.txt'
 
     temp_file.write_text('base')
@@ -44,7 +35,7 @@ def test_common_ancestor_diverged(temp_repo: Repository) -> None:
     temp_file.write_text('b1')
     c1 = temp_repo.commit_working_dir('Author', 'Branch 1')
 
-    write_ref(temp_repo.repo_path() / "HEAD", base)
+    temp_repo.update_head(HashRef(base))
 
     temp_file.write_text('b2')
     c2 = temp_repo.commit_working_dir('Author', 'Branch 2')
@@ -52,10 +43,6 @@ def test_common_ancestor_diverged(temp_repo: Repository) -> None:
     assert temp_repo.get_common_ancestor(c1, c2) == base
 
 def test_common_ancestor_no_common(temp_repo: Repository) -> None:
-    # if temp_repo.exists():
-    #     temp_repo.delete_repo()
-    # temp_repo.init()
-
     (temp_repo.working_dir / "a.txt").write_text("a")
     c1 = temp_repo.commit_working_dir("Author", "1")
 
