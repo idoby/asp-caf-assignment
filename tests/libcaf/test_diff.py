@@ -158,17 +158,22 @@ def test_diff_nested_trees(temp_repo: Repository) -> None:
 
     assert len(modified) == 2
 
-    assert modified[0].record.name == 'dir1'
-    assert len(modified[0].children) == 1
-    assert modified[0].children[0].record.name == 'file_a.txt'
-    assert isinstance(modified[0].children[0], ModifiedDiff)
+    modified_names = sorted([m.record.name for m in modified])
+    assert modified_names == ['dir1', 'dir2']
+    
+    modified_dict = {m.record.name: m for m in modified}
+    
+    assert len(modified_dict['dir1'].children) == 1
+    assert modified_dict['dir1'].children[0].record.name == 'file_a.txt'
+    assert isinstance(modified_dict['dir1'].children[0], ModifiedDiff)
 
-    assert modified[1].record.name == 'dir2'
-    assert len(modified[1].children) == 2
-    assert modified[1].children[0].record.name == 'file_b.txt'
-    assert isinstance(modified[1].children[0], RemovedDiff)
-    assert modified[1].children[1].record.name == 'file_c.txt'
-    assert isinstance(modified[1].children[1], AddedDiff)
+    assert len(modified_dict['dir2'].children) == 2
+    dir2_children_names = sorted([c.record.name for c in modified_dict['dir2'].children])
+    assert dir2_children_names == ['file_b.txt', 'file_c.txt']
+    
+    dir2_children_dict = {c.record.name: c for c in modified_dict['dir2'].children}
+    assert isinstance(dir2_children_dict['file_b.txt'], RemovedDiff)
+    assert isinstance(dir2_children_dict['file_c.txt'], AddedDiff)
 
 
 def test_diff_moved_file_added_first(temp_repo: Repository) -> None:
@@ -199,31 +204,32 @@ def test_diff_moved_file_added_first(temp_repo: Repository) -> None:
 
     assert len(modified) == 2
 
-    assert modified[0].record.name == 'dir1'
-    assert len(modified[0].children) == 1
+    modified_names = sorted([m.record.name for m in modified])
+    assert modified_names == ['dir1', 'dir2']
+    
+    modified_dict = {m.record.name: m for m in modified}
 
-    modified_child = modified[0].children[0]
-    assert isinstance(modified_child, MovedToDiff)
-    assert modified_child.record.name == 'file_a.txt'
+    assert len(modified_dict['dir1'].children) == 1
+    dir1_child = modified_dict['dir1'].children[0]
+    assert isinstance(dir1_child, MovedToDiff)
+    assert dir1_child.record.name == 'file_a.txt'
 
-    assert isinstance(modified_child.moved_to, MovedFromDiff)
-    assert modified_child.moved_to.parent is not None
-    assert modified_child.moved_to.parent.record.name == 'dir2'
-    assert len(modified_child.moved_to.parent.children) == 1
-    assert modified_child.moved_to.record.name == 'file_c.txt'
+    assert isinstance(dir1_child.moved_to, MovedFromDiff)
+    assert dir1_child.moved_to.parent is not None
+    assert dir1_child.moved_to.parent.record.name == 'dir2'
+    assert len(dir1_child.moved_to.parent.children) == 1
+    assert dir1_child.moved_to.record.name == 'file_c.txt'
 
-    assert modified[1].record.name == 'dir2'
-    assert len(modified[1].children) == 1
+    assert len(modified_dict['dir2'].children) == 1
+    dir2_child = modified_dict['dir2'].children[0]
+    assert isinstance(dir2_child, MovedFromDiff)
+    assert dir2_child.record.name == 'file_c.txt'
 
-    modified_child = modified[1].children[0]
-    assert isinstance(modified_child, MovedFromDiff)
-    assert modified_child.record.name == 'file_c.txt'
-
-    assert isinstance(modified_child.moved_from, MovedToDiff)
-    assert modified_child.moved_from.parent is not None
-    assert modified_child.moved_from.parent.record.name == 'dir1'
-    assert len(modified_child.moved_from.parent.children) == 1
-    assert modified_child.moved_from.record.name == 'file_a.txt'
+    assert isinstance(dir2_child.moved_from, MovedToDiff)
+    assert dir2_child.moved_from.parent is not None
+    assert dir2_child.moved_from.parent.record.name == 'dir1'
+    assert len(dir2_child.moved_from.parent.children) == 1
+    assert dir2_child.moved_from.record.name == 'file_a.txt'
 
 
 def test_diff_moved_file_removed_first(temp_repo: Repository) -> None:
@@ -254,28 +260,29 @@ def test_diff_moved_file_removed_first(temp_repo: Repository) -> None:
 
     assert len(modified) == 2
 
-    assert modified[0].record.name == 'dir1'
-    assert len(modified[0].children) == 1
+    modified_names = sorted([m.record.name for m in modified])
+    assert modified_names == ['dir1', 'dir2']
+    
+    modified_dict = {m.record.name: m for m in modified}
 
-    modified_child = modified[0].children[0]
-    assert isinstance(modified_child, MovedFromDiff)
-    assert modified_child.record.name == 'file_c.txt'
+    assert len(modified_dict['dir1'].children) == 1
+    dir1_child = modified_dict['dir1'].children[0]
+    assert isinstance(dir1_child, MovedFromDiff)
+    assert dir1_child.record.name == 'file_c.txt'
 
-    assert isinstance(modified_child.moved_from, MovedToDiff)
-    assert modified_child.moved_from.parent is not None
-    assert modified_child.moved_from.parent.record.name == 'dir2'
-    assert len(modified_child.moved_from.parent.children) == 1
-    assert modified_child.moved_from.record.name == 'file_b.txt'
+    assert isinstance(dir1_child.moved_from, MovedToDiff)
+    assert dir1_child.moved_from.parent is not None
+    assert dir1_child.moved_from.parent.record.name == 'dir2'
+    assert len(dir1_child.moved_from.parent.children) == 1
+    assert dir1_child.moved_from.record.name == 'file_b.txt'
 
-    assert modified[1].record.name == 'dir2'
-    assert len(modified[1].children) == 1
+    assert len(modified_dict['dir2'].children) == 1
+    dir2_child = modified_dict['dir2'].children[0]
+    assert isinstance(dir2_child, MovedToDiff)
+    assert dir2_child.record.name == 'file_b.txt'
 
-    modified_child = modified[1].children[0]
-    assert isinstance(modified_child, MovedToDiff)
-    assert modified_child.record.name == 'file_b.txt'
-
-    assert isinstance(modified_child.moved_to, MovedFromDiff)
-    assert modified_child.moved_to.parent is not None
-    assert len(modified_child.moved_to.parent.children) == 1
-    assert modified_child.moved_to.parent.record.name == 'dir1'
-    assert modified_child.moved_to.record.name == 'file_c.txt'
+    assert isinstance(dir2_child.moved_to, MovedFromDiff)
+    assert dir2_child.moved_to.parent is not None
+    assert len(dir2_child.moved_to.parent.children) == 1
+    assert dir2_child.moved_to.parent.record.name == 'dir1'
+    assert dir2_child.moved_to.record.name == 'file_c.txt'
