@@ -569,8 +569,22 @@ class Repository:
         except Exception as e:
             msg = "Error diffing trees"
             raise RepositoryError(msg) from e
-    
-    
+        
+    @requires_repo
+    def status(self) -> Sequence[Diff] | None:
+        """Show the working tree status.
+
+        :return: A sequence of Diff objects representing the changes, or None if no commit exists yet.
+        :raises RepositoryError: If there is an error calculating the status.
+        :raises RefError: If a reference cannot be resolved.
+        """
+        head_commit = self.head_commit() 
+        if head_commit is None:
+            return None
+
+        return self.diff(head_commit, self.working_dir)
+
+
     def head_file(self) -> Path:
         """Get the path to the HEAD file within the repository.
 
