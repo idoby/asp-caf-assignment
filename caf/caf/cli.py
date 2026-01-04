@@ -152,6 +152,55 @@ def cli() -> None:
             },
             'help': '📊 Display differences between two commits',
         },
+        ################################################################################################################################3
+##################################### tag##################################################################################33
+        'create_tag': {
+            'func': cli_commands.create_tag,
+            'args': {
+                **_repo_args,
+                'tag_name': {
+                    'type': str,
+                    'help': '➕ Name of the tag of create',
+                 },
+                 'commit_hash':{
+                     'type': str,
+                     'help':'🔄 Commit hash tag'
+                 },
+                  'author' :{
+                      'type': str,
+                      'help': '👤 Author of the tag (optional)',
+                      'default': None
+                },
+                 'message': {
+                     'type': str,
+                     'help': '💬 Tag message (optional)',
+                     'default': None
+        },
+            },
+            'help': '✅ Create new tag',
+        },
+
+        'delete_tag': {
+            'func': cli_commands.delete_tag,
+            'args': {
+                **_repo_args,
+                'tag_name': {
+                    'type': str,
+                    'help': '❌ Name of the tag to delete',
+                },
+            },
+            'help': '🗑️ delete an existing tag',
+
+        },
+         'list_tags': {
+            'func': cli_commands.list_tags,
+            'args': {
+                **_repo_args,
+            },
+            'help': '📚 List all tags',
+        },
+    #####################################################################end-tag############################################
+    #################################################################################################################33333
     }
 
     # Register commands

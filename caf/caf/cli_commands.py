@@ -5,11 +5,12 @@ from collections.abc import MutableSequence, Sequence
 from datetime import datetime
 from pathlib import Path
 
-from libcaf.constants import DEFAULT_BRANCH
+from libcaf.constants import DEFAULT_BRANCH, DEFAULT_REPO_DIR, REFS_DIR, TAGS_DIR
 from libcaf.plumbing import hash_file as plumbing_hash_file
-from libcaf.ref import SymRef
+from libcaf.ref import SymRef,RefError
 from libcaf.repository import (AddedDiff, Diff, ModifiedDiff, MovedToDiff, RemovedDiff, Repository, RepositoryError,
-                               RepositoryNotFoundError)
+                               RepositoryNotFoundError,TagError)
+
 
 
 def _print_error(message: str) -> None:
@@ -275,3 +276,96 @@ def _print_diffs(diff_stack: MutableSequence[tuple[Sequence[Diff], int]]) -> Non
 
             if diff.children:
                 diff_stack.append((diff.children, indent + 3))
+
+
+                ######################################################################################################
+##################### tag###################################################################
+################################################################################
+
+
+
+def create_tag (**kwargs)-> int:
+    repo = _repo_from_cli_kwargs(kwargs)
+    tag_name = kwargs.get('tag_name')
+    commit_hash = kwargs.get('commit_hash')
+    author = kwargs.get('author')           
+    message = kwargs.get('message')          
+     
+    if tag_name is None:
+        _print_error('Tag name is required.')
+        return -1
+    if not commit_hash:
+        _print_error('Commit hash is required.')
+        return -1
+    
+
+    try:
+        repo.create_tag(tag_name,commit_hash,author, message)
+
+        tag_file = repo.tags_dir() / tag_name
+
+        import json
+        from datetime import datetime
+
+        data = json.loads(tag_file.read_text())
+        
+        str_time= datetime.fromtimestamp(data["timestamp"]).strftime("%Y-%m-%d %H:%M:%S")
+
+        _print_success( f'Tag "{data["name"]}" created successfully:\n'
+                        f'Commit:   {data["commit"]}\n'
+                        f'Time:     {str_time}\n'
+                        f'Author:   {data["author"]}\n'
+                        f'Message:  {data["message"]}\n')
+        return 0
+    
+    except (ValueError, TagError, RefError) as e:
+        _print_error(str(e))
+        return -1
+    
+    except RepositoryNotFoundError:
+        _print_error(f'No repository found at {repo.repo_path()}')
+        return -1
+    
+    except RepositoryError as e:
+        _print_error(f'Repository error: {e}')
+        return -1
+
+
+def delete_tag(**kwargs) -> int:
+    repo = _repo_from_cli_kwargs(kwargs)
+    tag_name = kwargs.get('tag_name')
+
+    if not tag_name:
+        _print_error('Tag name is required.')
+        return -1
+
+    try:
+        repo.delete_tag(tag_name)
+        _print_success(f'Tag "{tag_name}" deleted.')
+        return 0
+    except RepositoryNotFoundError:
+        _print_error(f'No repository found at {repo.repo_path()}')
+        return -1
+    except RepositoryError as e:
+        _print_error(f'Repository error: {e}')
+        return -1
+    
+def list_tags(**kwargs) -> int:
+    repo = _repo_from_cli_kwargs(kwargs)
+    
+    try:
+        tags_dir = repo.repo_path() / REFS_DIR / TAGS_DIR
+
+        tags = repo.list_tags()
+       
+        if not tags:
+            print("No tags found.")
+        else:
+            for tag in tags:
+                 print(f" - {tag}")
+        return 0
+    
+    except RepositoryNotFoundError:
+        _print_error(f'No repository found at {repo.repo_path()}')
+        return -1
+    

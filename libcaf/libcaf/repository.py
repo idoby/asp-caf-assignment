@@ -9,11 +9,11 @@ from functools import wraps
 from pathlib import Path
 from typing import Concatenate
 
-from . import Blob, Commit, Tree, TreeRecord, TreeRecordType
+from . import Blob, Commit, Tree, TreeRecord, TreeRecordType, Like
 from .constants import (DEFAULT_BRANCH, DEFAULT_REPO_DIR, HASH_CHARSET, HASH_LENGTH, HEADS_DIR, HEAD_FILE,
-                        OBJECTS_SUBDIR, REFS_DIR)
-from .plumbing import hash_object, load_commit, load_tree, save_commit, save_file_content, save_tree
-from .ref import HashRef, Ref, RefError, SymRef, read_ref, write_ref
+                        OBJECTS_SUBDIR, REFS_DIR, TAGS_DIR)
+from .plumbing import hash_object, load_commit, load_tree, save_commit, save_file_content, save_tree, save_like, load_like, delete_content
+from .ref import HashRef, Ref, RefError, SymRef, read_ref, write_ref, HashRef
 
 
 class RepositoryError(Exception):
@@ -22,6 +22,9 @@ class RepositoryError(Exception):
 
 class RepositoryNotFoundError(RepositoryError):
     """Exception raised when a repository is not found."""
+
+class TagError(Exception):
+    """Exception raised for tag-related errors."""
 
 
 @dataclass
@@ -70,6 +73,10 @@ class LogEntry:
     commit: Commit
 
 
+
+    
+
+
 class Repository:
     """Represents a libcaf repository.
 
@@ -102,6 +109,9 @@ class Repository:
         self.add_branch(default_branch)
 
         write_ref(self.head_file(), branch_ref(default_branch))
+
+        self._users: dict[str, list[HashRef]] = {}
+
 
     def exists(self) -> bool:
         """Check if the repository exists in the working directory.
@@ -551,6 +561,209 @@ class Repository:
 
         :return: The path to the HEAD file."""
         return self.repo_path() / HEAD_FILE
+    
+############### tag#############################
+
+
+    def tags_dir(self) -> Path:
+          """Get the path to the tags directory in the repository.
+
+           :return: The path to the directory where tag files are stored."""
+          
+          return self.refs_dir() / TAGS_DIR
+
+    @requires_repo
+    def create_tag(self, tag_name: str, commit_hash: HashRef | str | None = None,
+                author: str | None = None, message: str | None = None) -> None:
+        
+        """Create a new tag that points to a commit.
+
+            :param tag_name: The name of the tag to create.
+            :param commit_hash: The hash commit to tag. If None, uses HEAD.
+            :param author: Optional author name.
+            :param message: Optional message for the tag.
+            :raises ValueError: If the tag name is empty.
+            :raises TagError: If the tag already exists.
+            :raises RepositoryError: If the commit is invalid.
+            :raises RepositoryNotFoundError: If the repository does not exist."""
+        
+     
+        if not tag_name:
+            raise ValueError("Tag has no name")
+        
+        tag_file = self.tags_dir() / tag_name 
+    
+        if tag_file.exists():
+            raise TagError(f'Tag "{tag_name}" already exists and a new one cannot be created .')
+        
+    
+        if not commit_hash:
+            commit_hash_ref = self.head_commit()
+            if commit_hash_ref is None:
+                raise RepositoryError("Cannot create a tag without commit.")
+    
+        else:
+            try:
+                commit_hash_ref = self.resolve_ref(commit_hash)
+            except Exception as e:
+                raise RepositoryError(f"Unable to resolve reference '{commit_hash}'.") from e
+
+            
+            
+        commit_hash_str = str(commit_hash_ref)
+        commit_path = self.objects_dir() / commit_hash_str[:2] / commit_hash_str
+        if not commit_path.exists():
+            raise RepositoryError(f'Commit "{commit_hash_ref}" does not exist at all.')
+
+
+        import json, time
+        
+        tag_commit = {
+            "name": tag_name,
+            "commit": str(commit_hash_ref),
+            "author": author if author else "unknown",
+            "timestamp": int(time.time()),
+            "message": message if message else ""
+        }
+
+        self.tags_dir().mkdir(parents=True, exist_ok=True)
+
+        tag_file.write_text(json.dumps(tag_commit, indent=4))
+
+
+
+    @requires_repo
+    def delete_tag(self, tag_name: str) -> None:
+        """Delete a tag from the repository.
+
+        :param tag_name: The name of the tag to delete.
+        :raises ValueError: If the tag name is empty.
+        :raises RepositoryError: If the tag does not exist.
+        :raises RepositoryNotFoundError: If the repository does not exist."""
+
+        if not tag_name:
+            raise ValueError("Tag name is required")
+        
+        tag_file = self.tags_dir()/ tag_name
+
+        if not tag_file.exists():
+            raise RepositoryError('A tag with that name does not exist')
+        
+        tag_file.unlink()
+        
+    @requires_repo
+    def list_tags(self) -> list[str]:
+        """Get a list of all tag names in the repository.
+
+        :return: A list of tag names.
+        :raises RepositoryNotFoundError: If the repository does not exist."""
+        
+
+        tags_path = self.tags_dir()
+        
+        if not tags_path.exists():
+            return []
+        
+        tag_names = []
+
+        for tag in tags_path.iterdir():
+            if tag.is_file():
+                tag_names.append(tag.name)
+        
+        return tag_names
+
+    @requires_repo
+    def create_like(self, commit_ref: HashRef | str, user: str) -> HashRef:
+        if user not in self._users:
+            raise RepositoryError(f"User '{user}' is not registered")
+
+        resolved = self.resolve_ref(commit_ref)
+        if resolved is None:
+            raise RepositoryError("Invalid commit reference")
+
+        commit_hash = str(resolved)
+
+        if commit_hash in self._users[user]:
+            raise RepositoryError(
+                f"User '{user}' already liked commit '{commit_hash}'"
+            )
+
+        like = Like(commit_hash, user, int(datetime.now().timestamp()))
+        like_hash = self.save_like(like)
+
+        self._users[user].add(commit_hash)
+
+        return like_hash
+
+
+    
+    @requires_repo
+    def delete_like(self, commit_ref: HashRef | str, user: str) -> None:
+        if user not in self._users:
+            raise RepositoryError(f"User '{user}' is not registered")
+
+        resolved = self.resolve_ref(commit_ref)
+        if resolved is None:
+            raise RepositoryError("Invalid commit reference")
+
+        commit_hash = str(resolved)
+
+        if commit_hash not in self._users[user]:
+            raise RepositoryError(
+                f"User '{user}' has no like on commit '{commit_hash}'"
+            )
+
+        self._users[user].remove(commit_hash)
+
+        delete_content(self.objects_dir(), like_hash)
+    
+    
+    @requires_repo
+    def likes_by_user(self, user: str) -> list[HashRef]:
+        if user not in self._users:
+            raise RepositoryError(f"User '{user}' is not registered")
+
+        return list(self._users[user].keys())
+    
+    @requires_repo
+    def users_for_commit(self, commit_ref: HashRef | str) -> list[str]:
+        resolved = self.resolve_ref(commit_ref)
+        if resolved is None:
+            raise RepositoryError("Invalid commit reference")
+
+        commit_hash = str(resolved)
+        result: list[str] = []
+
+        for user, commits in self._users.items():
+            if commit_hash in commits:
+                result.append(user)
+
+        return result
+
+
+    @requires_repo
+    def add_user(self, user: str) -> None:
+        if not user:
+            raise ValueError("User name is required")
+        if user in self._users:
+            raise RepositoryError(f"User '{user}' already exists")
+        self._users[user] = set()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 def branch_ref(branch: str) -> SymRef:
@@ -559,3 +772,4 @@ def branch_ref(branch: str) -> SymRef:
     :param branch: The name of the branch.
     :return: A SymRef object representing the branch reference."""
     return SymRef(f'{HEADS_DIR}/{branch}')
+
