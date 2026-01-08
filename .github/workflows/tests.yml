@@ -9,6 +9,10 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
 
     env:
       CONTAINER_NAME: caf-dev-container
@@ -37,19 +41,38 @@ jobs:
     - name: Run tests with coverage
       run: docker exec $CONTAINER_NAME make test ENABLE_COVERAGE=1
 
-    - name: Upload Python coverage
-      uses: actions/upload-artifact@v4
-      if: always()
+    - name: Publish Test Report
+      uses: dorny/test-reporter@v1
+      if: success() || failure()
       with:
-        name: python-coverage
-        path: tests/.coverage/python.*
+        name: Test Results
+        path: test-results.xml
+        reporter: java-junit
 
-    - name: Upload C++ coverage
+    - name: Upload Coverage HTML
       uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: cpp-coverage
-        path: tests/.coverage/cpp.info
+        name: html-coverage-report
+        path: coverage/
+
+    - name: Setup LCOV
+      uses: hrishikesh-kadam/setup-lcov@v1
+
+    - name: Fix absolute paths in coverage file
+      if: always()
+      run: |
+        sudo chown -R $USER coverage
+        sed -i 's|/workspace|${{ github.workspace }}|g' coverage/combined_coverage.info
+
+    - name: Report Coverage
+      uses: zgosalvez/github-actions-report-lcov@v4
+      if: always()
+      with:
+        coverage-files: coverage/combined_coverage.info
+        minimum-coverage: 80
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        update-comment: true
 
     - name: Cleanup Docker container
       if: always()
