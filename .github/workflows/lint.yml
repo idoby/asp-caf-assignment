@@ -68,13 +68,16 @@ jobs:
     - name: Run mypy type checker
       id: mypy
       run: |
+        # Add problem matcher for annotations
+        echo "::add-matcher::.github/matchers/mypy.json"
+        
         # Run mypy and capture output for job summary
         set +e
         mypy caf libcaf tests --show-error-codes --no-error-summary > /tmp/mypy_output.txt 2>&1
         MYPY_EXIT=$?
         set -e
         
-        # Display output in logs
+        # Display output in logs (this also triggers the problem matcher)
         cat /tmp/mypy_output.txt
         
         # Create job summary with all errors
@@ -86,21 +89,9 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
         fi
         
-        # Generate annotations using workflow commands
-        while IFS= read -r line; do
-          # Parse mypy output: file:line: error: message [code]
-          if [[ "$line" =~ ^([^:]+):([0-9]+):\ (error|warning|note):\ (.+)$ ]]; then
-            file="${BASH_REMATCH[1]}"
-            line_num="${BASH_REMATCH[2]}"
-            level="${BASH_REMATCH[3]}"
-            message="${BASH_REMATCH[4]}"
-            if [[ "$level" == "error" ]]; then
-              echo "::error file=$file,line=$line_num::$message"
-            elif [[ "$level" == "warning" ]]; then
-              echo "::warning file=$file,line=$line_num::$message"
-            fi
-          fi
-        done < /tmp/mypy_output.txt
+        # Remove problem matcher
+        echo "::remove-matcher owner=mypy::"
+        echo "::remove-matcher owner=mypy-note::"
         
         exit $MYPY_EXIT
 
