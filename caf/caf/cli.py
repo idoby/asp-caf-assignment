@@ -23,6 +23,7 @@ _repo_args: dict[str, dict[str, Any]] = {
 
 
 def cli() -> None:
+    """Parse command-line arguments and execute the appropriate CAF command."""
     parser = argparse.ArgumentParser(description='CAF Command Line Interface')
     commands_sub = parser.add_subparsers(title='✨ Available Commands ✨', dest='command',
                                          help='Choose a command to execute')

@@ -74,13 +74,15 @@ class Repository:
     """Represents a libcaf repository.
 
     This class provides methods to initialize a repository, manage branches,
-    commit changes, and perform various operations on the repository."""
+    commit changes, and perform various operations on the repository.
+    """
 
     def __init__(self, working_dir: Path | str, repo_dir: Path | str | None = None) -> None:
         """Initialize a Repository instance. The repository is not created on disk until `init()` is called.
 
         :param working_dir: The working directory where the repository will be located.
-        :param repo_dir: The name of the repository directory within the working directory. Defaults to '.caf'."""
+        :param repo_dir: The name of the repository directory within the working directory. Defaults to '.caf'.
+        """
         self.working_dir = Path(working_dir)
 
         if repo_dir is None:
@@ -92,7 +94,8 @@ class Repository:
         """Initialize a new CAF repository in the working directory.
 
         :param default_branch: The name of the default branch to create. Defaults to 'main'.
-        :raises RepositoryError: If the repository already exists or if the working directory is invalid."""
+        :raises RepositoryError: If the repository already exists or if the working directory is invalid.
+        """
         self.repo_path().mkdir(parents=True)
         self.objects_dir().mkdir()
 
@@ -106,31 +109,36 @@ class Repository:
     def exists(self) -> bool:
         """Check if the repository exists in the working directory.
 
-        :return: True if the repository exists, False otherwise."""
+        :return: True if the repository exists, False otherwise.
+        """
         return self.repo_path().exists()
 
     def repo_path(self) -> Path:
         """Get the path to the repository directory.
 
-        :return: The path to the repository directory."""
+        :return: The path to the repository directory.
+        """
         return self.working_dir / self.repo_dir
 
     def objects_dir(self) -> Path:
         """Get the path to the objects directory within the repository.
 
-        :return: The path to the objects directory."""
+        :return: The path to the objects directory.
+        """
         return self.repo_path() / OBJECTS_SUBDIR
 
     def refs_dir(self) -> Path:
         """Get the path to the refs directory within the repository.
 
-        :return: The path to the refs directory."""
+        :return: The path to the refs directory.
+        """
         return self.repo_path() / REFS_DIR
 
     def heads_dir(self) -> Path:
         """Get the path to the heads directory within the repository.
 
-        :return: The path to the heads directory."""
+        :return: The path to the heads directory.
+        """
         return self.refs_dir() / HEADS_DIR
 
     @staticmethod
@@ -139,7 +147,8 @@ class Repository:
         """Decorate a Repository method to ensure that the repository exists before executing the method.
 
         :param func: The method to decorate.
-        :return: A wrapper function that checks for the repository's existence."""
+        :return: A wrapper function that checks for the repository's existence.
+        """
 
         @wraps(func)
         def _verify_repo(self: 'Repository', *args: P.args, **kwargs: P.kwargs) -> R:
@@ -157,7 +166,8 @@ class Repository:
 
         :return: The current HEAD reference, which can be a HashRef or SymRef.
         :raises RepositoryError: If the HEAD ref file does not exist.
-        :raises RepositoryNotFoundError: If the repository does not exist."""
+        :raises RepositoryNotFoundError: If the repository does not exist.
+        """
         head_file = self.head_file()
         if not head_file.exists():
             msg = 'HEAD ref file does not exist'
@@ -171,7 +181,8 @@ class Repository:
 
         :return: The current commit reference, or None if HEAD is not a commit.
         :raises RepositoryError: If the HEAD ref file does not exist.
-        :raises RepositoryNotFoundError: If the repository does not exist."""
+        :raises RepositoryNotFoundError: If the repository does not exist.
+        """
         # If HEAD is a symbolic reference, resolve it to a hash
         resolved_ref = self.resolve_ref(self.head_ref())
         if resolved_ref:
@@ -184,7 +195,8 @@ class Repository:
 
         :return: A list of SymRef objects representing the symbolic references.
         :raises RepositoryError: If the refs directory does not exist or is not a directory.
-        :raises RepositoryNotFoundError: If the repository does not exist."""
+        :raises RepositoryNotFoundError: If the repository does not exist.
+        """
         refs_dir = self.refs_dir()
         if not refs_dir.exists() or not refs_dir.is_dir():
             msg = f'Refs directory does not exist or is not a directory: {refs_dir}'
@@ -202,7 +214,8 @@ class Repository:
         :param ref: The reference to resolve. This can be a HashRef, SymRef, or a string.
         :return: The resolved HashRef or None if the reference does not exist.
         :raises RefError: If the reference is invalid or cannot be resolved.
-        :raises RepositoryNotFoundError: If the repository does not exist."""
+        :raises RepositoryNotFoundError: If the repository does not exist.
+        """
         match ref:
             case HashRef():
                 return ref
@@ -235,7 +248,8 @@ class Repository:
         :param ref_name: The name of the symbolic reference to update.
         :param new_ref: The new reference value to set.
         :raises RepositoryError: If the reference does not exist.
-        :raises RepositoryNotFoundError: If the repository does not exist."""
+        :raises RepositoryNotFoundError: If the repository does not exist.
+        """
         ref_path = self.refs_dir() / ref_name
 
         if not ref_path.exists():
@@ -248,7 +262,8 @@ class Repository:
     def delete_repo(self) -> None:
         """Delete the entire repository, including all objects and refs.
 
-        :raises RepositoryNotFoundError: If the repository does not exist."""
+        :raises RepositoryNotFoundError: If the repository does not exist.
+        """
         shutil.rmtree(self.repo_path())
 
     @requires_repo
@@ -258,7 +273,8 @@ class Repository:
         :param file: The path to the file to save.
         :return: A Blob object representing the saved file content.
         :raises ValueError: If the file does not exist.
-        :raises RepositoryNotFoundError: If the repository does not exist."""
+        :raises RepositoryNotFoundError: If the repository does not exist.
+        """
         return save_file_content(self.objects_dir(), file)
 
     @requires_repo
@@ -268,7 +284,8 @@ class Repository:
         :param branch: The name of the branch to add.
         :raises ValueError: If the branch name is empty.
         :raises RepositoryError: If the branch already exists.
-        :raises RepositoryNotFoundError: If the repository does not exist."""
+        :raises RepositoryNotFoundError: If the repository does not exist.
+        """
         if not branch:
             msg = 'Branch name is required'
             raise ValueError(msg)
@@ -285,7 +302,8 @@ class Repository:
         :param branch: The name of the branch to delete.
         :raises ValueError: If the branch name is empty.
         :raises RepositoryError: If the branch does not exist or if it is the last branch in the repository.
-        :raises RepositoryNotFoundError: If the repository does not exist."""
+        :raises RepositoryNotFoundError: If the repository does not exist.
+        """
         if not branch:
             msg = 'Branch name is required'
             raise ValueError(msg)
@@ -306,7 +324,8 @@ class Repository:
 
         :param branch_ref: The reference to the branch to check.
         :return: True if the branch exists, False otherwise.
-        :raises RepositoryNotFoundError: If the repository does not exist."""
+        :raises RepositoryNotFoundError: If the repository does not exist.
+        """
         return (self.heads_dir() / branch_ref).exists()
 
     @requires_repo
@@ -314,7 +333,8 @@ class Repository:
         """Get a list of all branch names in the repository.
 
         :return: A list of branch names.
-        :raises RepositoryNotFoundError: If the repository does not exist."""
+        :raises RepositoryNotFoundError: If the repository does not exist.
+        """
         return [x.name for x in self.heads_dir().iterdir() if x.is_file()]
 
     @requires_repo
@@ -324,7 +344,8 @@ class Repository:
         :param path: The path to the directory to save.
         :return: A HashRef object representing the saved directory tree object.
         :raises NotADirectoryError: If the path is not a directory.
-        :raises RepositoryNotFoundError: If the repository does not exist."""
+        :raises RepositoryNotFoundError: If the repository does not exist.
+        """
         if not path or not path.is_dir():
             msg = f'{path} is not a directory'
             raise NotADirectoryError(msg)
@@ -366,7 +387,8 @@ class Repository:
         :return: A HashRef object representing the commit reference.
         :raises ValueError: If the author or message is empty.
         :raises RepositoryError: If the commit process fails.
-        :raises RepositoryNotFoundError: If the repository does not exist."""
+        :raises RepositoryNotFoundError: If the repository does not exist.
+        """
         if not author:
             msg = 'Author is required'
             raise ValueError(msg)
@@ -403,7 +425,8 @@ class Repository:
         :param tip: The reference to the commit to start from. If None, defaults to the current HEAD.
         :return: A generator yielding LogEntry objects representing the commits in the log.
         :raises RepositoryError: If a commit cannot be loaded.
-        :raises RepositoryNotFoundError: If the repository does not exist."""
+        :raises RepositoryNotFoundError: If the repository does not exist.
+        """
         tip = tip or self.head_ref()
         current_hash = self.resolve_ref(tip)
 
@@ -425,7 +448,8 @@ class Repository:
         :param commit_ref2: The reference to the second commit. If None, defaults to the current HEAD.
         :return: A list of Diff objects representing the differences between the two commits.
         :raises RepositoryError: If a commit or tree cannot be loaded.
-        :raises RepositoryNotFoundError: If the repository does not exist."""
+        :raises RepositoryNotFoundError: If the repository does not exist.
+        """
         if commit_ref1 is None:
             commit_ref1 = self.head_ref()
         if commit_ref2 is None:
@@ -549,7 +573,8 @@ class Repository:
     def head_file(self) -> Path:
         """Get the path to the HEAD file within the repository.
 
-        :return: The path to the HEAD file."""
+        :return: The path to the HEAD file.
+        """
         return self.repo_path() / HEAD_FILE
 
 
@@ -557,5 +582,6 @@ def branch_ref(branch: str) -> SymRef:
     """Create a symbolic reference for a branch name.
 
     :param branch: The name of the branch.
-    :return: A SymRef object representing the branch reference."""
+    :return: A SymRef object representing the branch reference.
+    """
     return SymRef(f'{HEADS_DIR}/{branch}')

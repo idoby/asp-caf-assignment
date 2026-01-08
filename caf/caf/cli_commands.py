@@ -21,6 +21,7 @@ def _print_success(message: str) -> None:
 
 
 def init(**kwargs) -> int:
+    """Initialize a new CAF repository."""
     repo = _repo_from_cli_kwargs(kwargs)
     default_branch = kwargs.get('default_branch', DEFAULT_BRANCH)
 
@@ -34,6 +35,7 @@ def init(**kwargs) -> int:
 
 
 def delete_repo(**kwargs) -> int:
+    """Delete an existing CAF repository."""
     repo = _repo_from_cli_kwargs(kwargs)
 
     try:
@@ -46,6 +48,7 @@ def delete_repo(**kwargs) -> int:
 
 
 def hash_file(**kwargs) -> int:
+    """Compute and optionally save the hash of a file."""
     path = Path(kwargs['path'])
 
     if not path.exists():
@@ -70,6 +73,7 @@ def hash_file(**kwargs) -> int:
 
 
 def add_branch(**kwargs) -> int:
+    """Create a new branch in the repository."""
     repo = _repo_from_cli_kwargs(kwargs)
     branch_name = kwargs.get('branch_name')
 
@@ -90,6 +94,7 @@ def add_branch(**kwargs) -> int:
 
 
 def delete_branch(**kwargs) -> int:
+    """Delete an existing branch from the repository."""
     repo = _repo_from_cli_kwargs(kwargs)
     branch_name = kwargs.get('branch_name')
 
@@ -110,6 +115,7 @@ def delete_branch(**kwargs) -> int:
 
 
 def branch_exists(**kwargs) -> int:
+    """Check if a branch exists in the repository."""
     repo = _repo_from_cli_kwargs(kwargs)
     branch_name = kwargs.get('branch_name')
 
@@ -130,6 +136,7 @@ def branch_exists(**kwargs) -> int:
 
 
 def branch(**kwargs) -> int:
+    """List all branches in the repository."""
     repo = _repo_from_cli_kwargs(kwargs)
     try:
         branches = repo.branches()
@@ -161,6 +168,7 @@ def branch(**kwargs) -> int:
 
 
 def commit(**kwargs) -> int:
+    """Create a new commit in the repository."""
     repo = _repo_from_cli_kwargs(kwargs)
     author = kwargs.get('author')
     message = kwargs.get('message')
@@ -189,6 +197,7 @@ def commit(**kwargs) -> int:
 
 
 def log(**kwargs) -> int:
+    """Display the commit history of the repository."""
     repo = _repo_from_cli_kwargs(kwargs)
 
     try:
@@ -219,6 +228,7 @@ def log(**kwargs) -> int:
 
 
 def diff(**kwargs) -> int:
+    """Show differences between two commits."""
     repo = _repo_from_cli_kwargs(kwargs)
     commit1 = kwargs.get('commit1')
     commit2 = kwargs.get('commit2')

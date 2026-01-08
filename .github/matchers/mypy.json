@@ -1,0 +1,31 @@
+{
+  "problemMatcher": [
+    {
+      "owner": "mypy",
+      "severity": "error",
+      "pattern": [
+        {
+          "regexp": "^(.+):(\\d+):\\s+(error):\\s+(.+)\\s+\\[(.+)\\]$",
+          "file": 1,
+          "line": 2,
+          "severity": 3,
+          "message": 4,
+          "code": 5
+        }
+      ]
+    },
+    {
+      "owner": "mypy-note",
+      "severity": "warning",
+      "pattern": [
+        {
+          "regexp": "^(.+):(\\d+):\\s+(note):\\s+(.+)$",
+          "file": 1,
+          "line": 2,
+          "severity": 3,
+          "message": 4
+        }
+      ]
+    }
+  ]
+}

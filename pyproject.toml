@@ -51,5 +51,24 @@ exclude = ['libcaf/_libcaf.pyi']
 [tool.ruff.lint]
 select = ['ALL']
 
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S101", "D100", "D101", "D102", "D103", "PT013", "INP001"]
+
 [tool.ruff.lint.flake8-quotes]
 inline-quotes = 'single'
+
+[tool.mypy]
+python_version = '3.12'
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+ignore_missing_imports = true
+exclude = ['libcaf/_libcaf.pyi']
+
+[dependency-groups]
+dev = [
+    'ruff>=0.11.13',
+    'mypy>=1.16.0',
+]
