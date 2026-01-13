@@ -1,6 +1,6 @@
 """libcaf - Content Addressable File system in Python."""
 
-from _libcaf import Blob, Commit, Tree, TreeRecord, TreeRecordType
+from _libcaf import Blob, Commit, Tree, TreeRecord, TreeRecordType, Like
 
 __all__ = [
     'Blob',
@@ -8,4 +8,5 @@ __all__ = [
     'Tree',
     'TreeRecord',
     'TreeRecordType',
+    'Like',
 ]

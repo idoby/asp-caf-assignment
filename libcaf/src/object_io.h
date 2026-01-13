@@ -16,6 +16,7 @@ Commit load_commit(const std::string &root_dir, const std::string &hash);
 void save_tree(const std::string &root_dir, const Tree &tree);
 Tree load_tree(const std::string &root_dir, const std::string &hash);
 void save_like(const std::string& root_dir, const Like& like);
+Like load_like(const std::string& root_dir, const std::string& hash);
 
 
 #endif // OBJECT_IO_H

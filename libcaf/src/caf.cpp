@@ -167,7 +167,7 @@ Blob save_file_content(const std::string& content_root_dir, const std::string& f
     return Blob(file_hash);
 }
 
-for_writing(const std::string& content_root_dir, const std::string& content_hash) {
+int open_content_for_writing(const std::string& content_root_dir, const std::string& content_hash){
     std::error_code ec;
     std::filesystem::create_directories(content_root_dir, ec);
     if (ec && ec != std::errc::file_exists) {
